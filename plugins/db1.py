@@ -10,8 +10,10 @@ second='*/7'
 
 def run(PATH, FLAGFINISHED):
     
-    print("DB 1: Downloading")
+    print("DB 1: Input arguments")
+    print('{}/{}'.format(PATH, FLAGFINISHED))
+    print("DB 1: START Downloading")
     f = open('{}/DATABASE-{}'.format(PATH, time.time()), 'w').close()
     time.sleep(4)
-    print("DB 1: Finished download")
-    f = open('{}/{}'.format(PATH,FLAGFINISHED), 'w').close()
+    print("DB 1: FININSHED Download")
+    f = open('{}/{}'.format(PATH, FLAGFINISHED), 'w').close()

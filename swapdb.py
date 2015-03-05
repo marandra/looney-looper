@@ -16,9 +16,10 @@ import os
 import shutil
 import importlib
 import glob
+# our plugins directory. 'touch plugins/__init__.py' before first run.
 import plugins
 
-######################################################################
+################################################################################
 def update_plugin_list(pluginsdir):
     fi = open(os.path.join(pluginsdir, '__init__.py'), 'w')
     modules = glob.glob(os.path.join(pluginsdir,'*.py'))
@@ -64,6 +65,21 @@ def newelem(lnew, l):
         # check validity of elements
         ea.append(i)
     return ea
+
+def check_finished_dl(flagdownloaded, pendingdb, currentdb, previousdb, previousdbdir, currentdbdir):
+    print flagdownloaded, pendingdb, currentdb, previousdb, previousdbdir, currentdbdir
+    if os.path.isfile(flagdownloaded):
+        print 'Remove ' + previousdb
+        shutil.rmtree(previousdb)
+        print 'Remove ' + flagdownloaded
+        os.remove(flagdownloaded)
+        print 'Move ' + currentdb + ' '+ previousdbdir
+        shutil.move(currentdb, previousdbdir)
+        print 'Move ' + pendingdb + ' '+ currentdbdir
+        shutil.move(pendingdb, currentdbdir)
+        print 'Make dir ' + pendingdb
+        os.makedirs(pendingdb)
+    return
 #######################################################################
 #main
 if __name__ == "__main__":
@@ -153,15 +169,16 @@ if __name__ == "__main__":
         currentdb = []
         flagdownloaded = []
         for i, e in enumerate(plugins):
+            print i, e
             mod.append(importlib.import_module('plugins.{}'.format(e.split()[0])))
             run.append(getattr(mod[-1], 'run'))
             sec.append(getattr(mod[-1], 'second'))
             min.append(getattr(mod[-1], 'minute'))
             hrs.append(getattr(mod[-1], 'hour'))
             dow.append(getattr(mod[-1], 'day_of_week'))
-            pendingdb.append(os.path.join(basepath, pendingdbdir, e.split()[0]))
-            previousdb.append(os.path.join(basepath, previousdbdir, e.split()[0]))
-            currentdb.append(os.path.join(basepath, currentdbdir, e.split()[0]))
+            pendingdb.append(os.path.join(pendingdbdir, e.split()[0]))
+            previousdb.append(os.path.join(previousdbdir, e.split()[0]))
+            currentdb.append(os.path.join(currentdbdir, e.split()[0]))
             flagdownloaded.append(os.path.join(pendingdb[i], settings['marker']))
             
         for i, e in enumerate(plugins):
@@ -179,21 +196,20 @@ if __name__ == "__main__":
             scheduler.add_job(run[i], 'cron', args = arguments,
                 day_of_week = dow[i], hour = hrs[i], minute = min[i], second = sec[i])
 
+        # cleaning pass: check for pending complete download
+        for i, e in enumerate(plugins):
+             check_finished_dl(flagdownloaded[i], pendingdb[i], currentdb[i], previousdb[i], previousdbdir, currentdbdir)
+        # cleaning pass: check for incomplete download
+        for i, e in enumerate(plugins):
+             check_finished_dl(flagdownloaded[i], pendingdb[i], currentdb[i], previousdb[i], previousdbdir, currentdbdir)
+
         scheduler.print_jobs()
         while True:
             time.sleep(1)
             print "tic"
             for i, e in enumerate(plugins):
                  print flagdownloaded[i], os.path.isfile(flagdownloaded[i])
-                 if os.path.isfile(flagdownloaded[i]):
-                     print 'Remove ' + previousdb[i]
-                     #shutil.rmtree(previousdb[i])
-                     print 'Remove ' + flagdownloaded[i]
-                     #os.remove(flagdownloaded[i])
-                     print 'Move ' + currentdb[i] + ' '+ previousdb[i]
-                     shutil.move(currentdb[i], previousdb[i])
-                     print 'Move ' + pendingdb[i] + ' '+ currentdb[i]
-                     shutil.move(pendingdb[i], currentdb[i])
+                 check_finished_dl(flagdownloaded[i], pendingdb[i], currentdb[i], previousdb[i], previousdbdir, currentdbdir)
             
     except (KeyboardInterrupt, SystemExit):
 #         pass
