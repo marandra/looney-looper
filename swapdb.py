@@ -16,8 +16,6 @@ import os
 import shutil
 import importlib
 import glob
-# our plugins directory. 'touch plugins/__init__.py' before first run.
-import plugins
 
 ################################################################################
 def update_plugin_list(pluginsdir):
@@ -29,6 +27,7 @@ def update_plugin_list(pluginsdir):
     fi.close
     reload(plugins)
     return all
+
 
 def get_settings():
     #defaults
@@ -46,6 +45,7 @@ def get_settings():
     return settings
 
 
+
 def get_plugins(plugindir):
     plugins = []
     possibleplugins = glob.glob(os.path.join(plugindir, '*'))
@@ -57,6 +57,7 @@ def get_plugins(plugindir):
         plugins.append({"name": name, "path": i, "info": info})
     return plugins
 
+
 def newelem(lnew, l):
     #check added elements
     tmpa = [x for x in lnew if x not in l]
@@ -66,20 +67,37 @@ def newelem(lnew, l):
         ea.append(i)
     return ea
 
-def check_finished_dl(flagdownloaded, pendingdb, currentdb, previousdb, previousdbdir, currentdbdir):
-    print flagdownloaded, pendingdb, currentdb, previousdb, previousdbdir, currentdbdir
-    if os.path.isfile(flagdownloaded):
-        print 'Remove ' + previousdb
-        shutil.rmtree(previousdb)
-        print 'Remove ' + flagdownloaded
-        os.remove(flagdownloaded)
-        print 'Move ' + currentdb + ' '+ previousdbdir
-        shutil.move(currentdb, previousdbdir)
-        print 'Move ' + pendingdb + ' '+ currentdbdir
-        shutil.move(pendingdb, currentdbdir)
-        print 'Make dir ' + pendingdb
-        os.makedirs(pendingdb)
+
+def check_finished_dl(dbname, t0dir, t1dir, t2dir, marker):
+    t0dbpath = os.path.join(t0dir, dbname)
+    t1dbpath = os.path.join(t1dir, dbname)
+    t2dbpath = os.path.join(t2dir, dbname)
+    flagdl = os.path.join(t0dbpath, marker)
+    if os.path.isfile(flagdl):
+        print 'Remove ' + t2dbpath
+        shutil.rmtree(t2dbpath)
+        print 'Remove ' + flagdl
+        os.remove(flagdl)
+        print 'Move ' + t1dbpath + ' '+ t2dir
+        shutil.move(t1dbpath, t2dir)
+        print 'Move ' + t0dbpath + ' '+ t1dir
+        shutil.move(t0dbpath, t1dir)
+        print 'Make dir ' + t0dbpath
+        os.makedirs(t0dbpath)
     return
+
+
+def check_incomplete_dl(dbname, t0dir, marker):
+    t0dbpath = os.path.join(t0dir, dbname)
+    flagdl = os.path.join(t0dbpath, marker)
+    if not os.path.isfile(flagdl):
+        print 'Remove ' + t0dbpath
+        shutil.rmtree(t0dbpath)
+        print 'Make dir ' + t0dbpath
+        os.makedirs(t0dbpath)
+    return
+
+
 #######################################################################
 #main
 if __name__ == "__main__":
@@ -93,6 +111,10 @@ if __name__ == "__main__":
     previousdbdir = os.path.join(basepath, settings['previousdbdir'])
     pendingdbdir = os.path.join(basepath, settings['pendingdbdir'])
    
+    # our plugins directory. 'touch plugins/__init__.py' before first run.
+    f = open('{}/{}'.format(plugindir, '__init__.py'), 'w').close()
+    import plugins
+
     #set up logging
     logging.basicConfig()
 
@@ -181,7 +203,6 @@ if __name__ == "__main__":
             currentdb.append(os.path.join(currentdbdir, e.split()[0]))
             flagdownloaded.append(os.path.join(pendingdb[i], settings['marker']))
             
-        for i, e in enumerate(plugins):
             print e, dow[i], hrs[i], min[i], sec[i]
             arguments = [pendingdb[i], settings['marker']]
             print arguments
@@ -193,23 +214,25 @@ if __name__ == "__main__":
             if not os.path.exists(previousdb[i]):
                 os.makedirs(previousdb[i])
             # add jobs to scheduler
-            scheduler.add_job(run[i], 'cron', args = arguments,
+            scheduler.add_job(run[i], 'cron', args = arguments, name = e,
                 day_of_week = dow[i], hour = hrs[i], minute = min[i], second = sec[i])
 
         # cleaning pass: check for pending complete download
         for i, e in enumerate(plugins):
-             check_finished_dl(flagdownloaded[i], pendingdb[i], currentdb[i], previousdb[i], previousdbdir, currentdbdir)
+             check_finished_dl(e, pendingdbdir, currentdbdir, previousdbdir, settings['marker'])
         # cleaning pass: check for incomplete download
         for i, e in enumerate(plugins):
-             check_finished_dl(flagdownloaded[i], pendingdb[i], currentdb[i], previousdb[i], previousdbdir, currentdbdir)
+             check_incomplete_dl(e, pendingdbdir, settings['marker'])
 
-        scheduler.print_jobs()
         while True:
             time.sleep(1)
-            print "tic"
+            fo = open('schedulerjobs.log', 'w')
+            scheduler.print_jobs(out = fo)
+            #scheduler.print_jobs()
+            fo.close()
+            #print "tic"
             for i, e in enumerate(plugins):
-                 print flagdownloaded[i], os.path.isfile(flagdownloaded[i])
-                 check_finished_dl(flagdownloaded[i], pendingdb[i], currentdb[i], previousdb[i], previousdbdir, currentdbdir)
+                 check_finished_dl(e, pendingdbdir, currentdbdir, previousdbdir, settings['marker'])
             
     except (KeyboardInterrupt, SystemExit):
 #         pass

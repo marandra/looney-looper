@@ -2,10 +2,15 @@ import time
 import os
 
 #schedule
-day_of_week='*'
-hour='*'
-minute='*'
-second='*/7'
+day_of_week = '*'
+hour = '*'
+minute = '*'
+second = '*/7'
+
+#data
+wait = '3' #hours
+resp = 'Ross Mccants'
+email = 'ross.mccants@unibas.ch'
 
 
 def run(PATH, FLAGFINISHED):
