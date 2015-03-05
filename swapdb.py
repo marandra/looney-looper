@@ -6,7 +6,7 @@
 #from pprint import pprint #only for development
 ##from sh import rsync
 #import tiff2jp2 #only for development
-#
+
 import logging
 import logging.handlers
 from apscheduler.schedulers.background import BackgroundScheduler
