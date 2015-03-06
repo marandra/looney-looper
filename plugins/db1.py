@@ -9,7 +9,7 @@ second = '*/7'
 
 #data
 wait = '3' #hours
-resp = 'Ross Mccants'
+person = 'Ross Mccants'
 email = 'ross.mccants@unibas.ch'
 
 
