@@ -2,23 +2,29 @@ import time
 import os
 
 #config schedule and contact data
-day_of_week = '*'
-hour = '*'
-minute = '*'
 second = '*/21'
+minute = '*'
+hour = '*'
+day_of_week = '*'
 person = 'Ross Mccants'
 email = 'ross.mccants@unibas.ch'
 
 
 def run(PATH, FLAGFINISHED):
 
-    ### BEGINING OF DOWNLOAD SCRIPT ###
-    timestr = time.strftime("%H:%M:%S", time.localtime())
-    open('{}/DATABASE-{}'.format(PATH, timestr), 'w').close()
-    time.sleep(5)
-    ### END OF DOWNLOAD SCRIPT ###
+    ######## BEGINING OF DOWNLOAD SCRIPT ########
+    #update = check_update()
+    UPDATE = False
+    if UPDATE:
+        timestr = time.strftime("%H:%M:%S", time.localtime())
+        open('{}/DATABASE_1-{}'.format(PATH, timestr), 'w').close()
+        time.sleep(5)
+    ######## END OF DOWNLOAD SCRIPT ########
 
-    open('{}/{}'.format(PATH, FLAGFINISHED), 'w').close()
+    if UPDATE:
+        open('{}/{}'.format(PATH, FLAGFINISHED), 'w').close()
+    else:
+        open('{}/{}'.format(PATH, 'WILL_NOT_UPDATE'), 'w').close()
     return 
 
 ############################################
