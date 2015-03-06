@@ -74,6 +74,8 @@ def check_finished_dl(dbname, t0dir, t1dir, t2dir, marker):
     t2dbpath = os.path.join(t2dir, dbname)
     flagdl = os.path.join(t0dbpath, marker)
     if os.path.isfile(flagdl):
+        #artifical delay. REMOVE IT.
+        time.sleep(1)
         #print 'Remove ' + t2dbpath
         shutil.rmtree(t2dbpath)
         #print 'Remove ' + flagdl
@@ -118,7 +120,7 @@ def write_status(statusdict, fname):
     line.append('BC2 Data    {}\n'.format(
         time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
     line.append('Live data directory: /import/bc2/data/databases\n\n')
-    line.append('{:<10s}{:<13s}{:<26s}{:<15}{:<60s}\n\n'.format(
+    line.append('{:<10s}{:<13s}{:<26s}{:<19}{:<60s}\n\n'.format(
         'Target',
         'Status',
         'Next update',
@@ -126,12 +128,12 @@ def write_status(statusdict, fname):
         'Email'))
     fo.write(''.join(line))
     for key, val in status.iteritems():
-        line = '{:<10s}{:<13s}{:<26s}{:<15}{:<60s}\n'.format(
+        line = '{:<10s}{:<13s}{:<26s}{:<19}{:<60s}\n'.format(
             key,
             val['status'],
             val['nextupdate'],
-            'Juan Perez',
-            'juan.perez@unibas.ch')
+            val['person'],
+            val['email'])
         fo.write(line)
     return
 
@@ -175,7 +177,6 @@ if __name__ == "__main__":
         currentdb = []
         flagdownloaded = []
         for i, e in enumerate(plugins):
-            print i, e
             module.append(importlib.import_module('plugins.{}'.format(e.split()[0])))
             runscr.append(getattr(module[-1], 'run'))
             second.append(getattr(module[-1], 'second'))
@@ -191,7 +192,6 @@ if __name__ == "__main__":
             
             print e, doweek[i], hour[i], minute[i], second[i]
             arguments = [pendingdb[i], settings['marker']]
-            print arguments
             #create db dirs if don't exist
             if not os.path.exists(pendingdb[i]):
                 os.makedirs(pendingdb[i])
@@ -211,7 +211,7 @@ if __name__ == "__main__":
              check_incomplete_dl(e, pendingdbdir, settings['marker'])
         
         while True:
-            time.sleep(1)
+            time.sleep(2)
             fo = open('schedulerjobs.log', 'w')
             scheduler.print_jobs(out = fo)
             fo.close()
@@ -219,7 +219,10 @@ if __name__ == "__main__":
             for i, e in enumerate(plugins):
                 status[e] = dict(
                     status = update_status(e, pendingdbdir),
-                    nextupdate = update_nextupdate(e, open('schedulerjobs.log', 'r')))
+                    nextupdate = update_nextupdate(e, open('schedulerjobs.log', 'r')),
+                    person = person[i],
+                    email = email[i]
+                )
             write_status(status, 'status.log')
             #print "tic"
             for i, e in enumerate(plugins):
