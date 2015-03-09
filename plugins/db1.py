@@ -2,29 +2,39 @@ import time
 import os
 
 #config schedule and contact data
-second = '*/21'
+second = '*/20'
 minute = '*'
 hour = '*'
 day_of_week = '*'
+stable_second = '*/20'
+stable_minute = '*'
+stable_hour = '*'
+stable_day_of_week = '*'
 person = 'Ross Mccants'
 email = 'ross.mccants@unibas.ch'
 
 
-def run(PATH, FLAGFINISHED):
+def check_update_stable(PATH, FLAGUPDATESTABLE):
+    open('{}/{}'.format(PATH, FLAGUPDATESTABLE), 'w').close()
+    return
 
-    ######## BEGINING OF DOWNLOAD SCRIPT ########
-    #update = check_update()
-    UPDATE = False
-    if UPDATE:
-        timestr = time.strftime("%H:%M:%S", time.localtime())
-        open('{}/DATABASE_1-{}'.format(PATH, timestr), 'w').close()
-        time.sleep(5)
-    ######## END OF DOWNLOAD SCRIPT ########
 
+def check_update_daily(PATH, LATEST, FLAGUPDATE):
+    #UPDATE = check_update(PATH, LATEST)
+    UPDATE = True
     if UPDATE:
-        open('{}/{}'.format(PATH, FLAGFINISHED), 'w').close()
+        open('{}/{}'.format(PATH, FLAGUPDATE), 'w').close()
     else:
-        open('{}/{}'.format(PATH, 'WILL_NOT_UPDATE'), 'w').close()
+        open('{}/{}'.format(PATH, FLAGWONTUPDATE), 'w').close()
+    return
+
+
+def run(PATH, FLAGFINISHED, FLAGWONTUPDATE):
+
+    open('{}/DATABASE_1'.format(PATH), 'w').close()
+    time.sleep(5)
+
+    open('{}/{}'.format(PATH, FLAGFINISHED), 'w').close()
     return 
 
 ############################################

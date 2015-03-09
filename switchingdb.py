@@ -5,7 +5,6 @@
 #import subprocess
 #from pprint import pprint #only for development
 ##from sh import rsync
-#import tiff2jp2 #only for development
 
 import logging
 import logging.handlers
@@ -33,50 +32,54 @@ def get_settings():
     #defaults
     configfile = './datamover.ini'
     sectname = 'config'
-    settings = {'plugindir':     "plugins",
-                'basepath':      ".",
-                'currentdbdir':  "databases",
+    settings = {'plugindir': "plugins",
+                'basepath': ".",
+                'currentdbdir': "databases",
                 'previousdbdir': "previous",
-                'pendingdbdir':  "pending",
-                'log_file':      "default.log", 
-                'marker':        "FINISHED_DOWNLOAD", 
+                'pendingdbdir': "pending",
+                'log_file': "default.log", 
+                'markerdownloaded': "FINISHED_DOWNLOAD", 
+                'markerwontupdate': "WILL_NOT_UPDATE", 
+                'markerupdate': "UPDATEME", 
+                'markerupdatestable': "UPDATEME_STABLE", 
+                'databases': "databases",
+                'data': "data",
     }
     return settings
 
+#def check_finished_dl(dbname, datadir, datadbupdate, fldownloaded, flwontupdate):
+#    flagdl = os.path.join(datadbupdate, fldownloaded)
+#    flagwu = os.path.join(datadbupdate, flwontupdate)
+#    if os.path.isdir(datadbupdate):
+#    if os.path.isfile(flagwu):
+#        os.remove(flagwu)
+#    if os.path.isfile(flagdl):
+#        shutil.rmtree(t2dbpath)
+#        os.remove(flagdl)
+#        shutil.move(t1dbpath, t2dir)
+#        shutil.move(t0dbpath, t1dir)
+#        os.makedirs(t0dbpath)
+#    return
 
-def check_finished_dl(dbname, t0dir, t1dir, t2dir, marker):
-    t0dbpath = os.path.join(t0dir, dbname)
-    t1dbpath = os.path.join(t1dir, dbname)
-    t2dbpath = os.path.join(t2dir, dbname)
-    flagdl = os.path.join(t0dbpath, marker)
-    flagwu = os.path.join(t0dbpath, 'WILL_NOT_UPDATE')
-    if os.path.isfile(flagwu):
-        os.remove(flagwu)
-    if os.path.isfile(flagdl):
-        #artifical delay. REMOVE IT.
-        time.sleep(1)
-        shutil.rmtree(t2dbpath)
-        os.remove(flagdl)
-        shutil.move(t1dbpath, t2dir)
-        shutil.move(t0dbpath, t1dir)
-        os.makedirs(t0dbpath)
+
+def update_latest(data, databases, dbname, latest, stable, previous, update):
+    ldir = os.readlink(os.path.join(databases, dbname, latest))
+    sdir = os.readlink(os.path.join(databases, dbname, stable))
+    pdir = os.readlink(os.path.join(databases, dbname, prevous))
+    ndir = os.readlink(os.path.join(data, '{}-{}'.format(dbname, update)))
+    if ldir == sdir or ldir == pdir:
+        shutil.copytree(ldir, ndir)
+    else 
+        shutil.move(ldir, ndir)
     return
 
-
-def check_incomplete_dl(dbname, t0dir, marker):
-    t0dbpath = os.path.join(t0dir, dbname)
-    flagdl = os.path.join(t0dbpath, marker)
-    if not os.path.isfile(flagdl):
-        shutil.rmtree(t0dbpath)
-        os.makedirs(t0dbpath)
-    return
-
-
-def update_status(dbname, t0dir):
-    status = 'up_to_date'
-    if os.listdir(os.path.join(t0dir, dbname)):
-        status = 'updating'
-    return status
+#def check_incomplete_dl(dbname, t0dir, markerdownloaded):
+#    t0dbpath = os.path.join(t0dir, dbname)
+#    flagdl = os.path.join(t0dbpath, markerdownloaded)
+#    if not os.path.isfile(flagdl):
+#        shutil.rmtree(t0dbpath)
+#        os.makedirs(t0dbpath)
+#    return
 
 
 def update_nextupdate(dbname, fj):
@@ -118,9 +121,12 @@ if __name__ == "__main__":
     settings = get_settings()
     basepath = settings['basepath']
     plugindir = os.path.join(basepath, settings['plugindir'])
-    currentdbdir = os.path.join(basepath, settings['currentdbdir'])
-    previousdbdir = os.path.join(basepath, settings['previousdbdir'])
-    pendingdbdir = os.path.join(basepath, settings['pendingdbdir'])
+    data = os.path.join(basepath, settings['data'])
+    databases = os.path.join(basepath, settings['databases'])
+    fldownloaded = settings['markerdownloaded']
+    flwontupdate = settings['markerwontupdate']
+    flupdate = settings['markerupdate']
+    flupdatestable = settings['markerupdatestable']
    
     # our plugins directory
     f = open('{}/{}'.format(plugindir, '__init__.py'), 'w').close()
@@ -131,13 +137,13 @@ if __name__ == "__main__":
     scheduler = BackgroundScheduler()
 
     try:
-        scheduler.start()
         plugins = update_plugin_list(plugindir)
         person = {}
         email = {}
         flagdownloaded = []
         for i, e in enumerate(plugins):
             module = importlib.import_module('plugins.{}'.format(e))
+            update = getattr(module, 'check_update_daily')
             runscr = getattr(module, 'run')
             second = getattr(module, 'second')
             minute = getattr(module, 'minute')
@@ -145,30 +151,25 @@ if __name__ == "__main__":
             doweek = getattr(module, 'day_of_week')
             person[e] = getattr(module, 'person')
             email[e] = getattr(module, 'email')
-            pendingdb = os.path.join(pendingdbdir, e)
-            previousdb = os.path.join(previousdbdir, e)
-            currentdb = os.path.join(currentdbdir, e)
-            flagdownloaded.append(os.path.join(pendingdb, settings['marker']))
-            
+            datadbupdate = os.path.join(data, '{}-updating'.format(e))
+            flagdownloaded.append(os.path.join(pendingdb, settings['markerdownloaded']))
+
+ 
             print e, second, minute, hour, doweek
-            arguments = [pendingdb, settings['marker']]
-            #create db dirs if don't exist
-            if not os.path.exists(pendingdb):
-                os.makedirs(pendingdb)
-            if not os.path.exists(currentdb):
-                os.makedirs(currentdb)
-            if not os.path.exists(previousdb):
-                os.makedirs(previousdb)
-            # add jobs to scheduler
-            scheduler.add_job(runscr, 'cron', args = arguments, name = e,
+            
+            LATEST = os.path.join(databases, e, 'latest')
+            UPDATE = os.path.join(data, '{}-updating'.format(e))
+            arguments = [UPDATE, LATEST, flupdate]
+            scheduler.add_job(update, 'cron', args = arguments, name = e,
                 day_of_week = doweek, hour = hour, minute = minute, second = second)
 
-        for i, e in enumerate(plugins):
+        #for i, e in enumerate(plugins):
             # cleaning pass: check for pending complete download
-            check_finished_dl(e, pendingdbdir, currentdbdir, previousdbdir, settings['marker'])
+            #check_finished_dl(e, pendingdbdir, currentdbdir, previousdbdir, settings['markerdownloaded'])
             # cleaning pass: check for incomplete download
-            check_incomplete_dl(e, pendingdbdir, settings['marker'])
+            #check_incomplete_dl(e, pendingdbdir, settings['markerdownloaded'])
         
+        scheduler.start()
         while True:
             time.sleep(2)
             fo = open('schedulerjobs.log', 'w')
@@ -176,15 +177,44 @@ if __name__ == "__main__":
             fo.close()
             status = {}
             for i, e in enumerate(plugins):
+
+                dlstatus = 'up_to_date'
+                UPDATEDIR = os.path.join(data, '{}-updating'.format(e))
+
+                # there is a db to update
+                updateme = os.path.join(UPDATEDIR, flupdate)
+                if os.path.isfile(updateme):
+                    shutil.rmtree(UPDATEDIR)
+                    update_latest(UPDATEDIR, e)
+                    dlstatus = 'updating'
+
+                # there is not db to update
+                dont_updateme = os.path.join(UPDATEDIR, flwontupdate)
+                if os.path.isfile(dont_updateme):
+                    shutil.rmtree(UPDATEDIR)
+
+                # is there a db updating?
+                if os.path.exists(UPDATEDIR):
+                    dlstatus = 'updating'
+
+                # finished downloading. m vdirectories, update symlink.
+                downloaded = os.path.join(UPDATEDIR, fldownloaded)
+                if os.path.isfile(downloaded):
+                    os.remove(downloaded)
+                    timestr = time.strftime("%H%M%S", time.localtime())
+                    ndir = os.path.join(data, '{}-{}'.format(e, tstr))
+                    shutil.move(UPDATEDIR, ndir)
+                    os.symlink(ndir, LATEST)
+
+                # status
                 status[e] = dict(
-                    status = update_status(e, pendingdbdir),
+                    status = dlstatus,
                     nextupdate = update_nextupdate(e, open('schedulerjobs.log', 'r')),
                     person = person[e],
                     email = email[e]
                 )
+
             write_status(status, 'status.log')
-            for i, e in enumerate(plugins):
-                 check_finished_dl(e, pendingdbdir, currentdbdir, previousdbdir, settings['marker'])
             
     except (KeyboardInterrupt, SystemExit):
          scheduler.shutdown()
