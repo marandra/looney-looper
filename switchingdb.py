@@ -15,6 +15,7 @@ import os
 import shutil
 import importlib
 import glob
+import threading
 
 ################################################################################
 def update_plugin_list(pluginsdir):
@@ -72,7 +73,8 @@ def update_latest(run, data, databases, dbname, latest, stable, previous, update
     else: 
         shutil.move(ldir, ndir)
     print "USE THREADS"
-    run(ndir, fldownloaded, flwontupdate)
+    run_thread = threading.Thread(target=run, args=[ndir, fldownloaded, flwontupdate])
+    run_thread.start()
     
     return
 
