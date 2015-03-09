@@ -33,13 +33,13 @@ def get_settings():
     #defaults
     configfile = './datamover.ini'
     sectname = 'config'
-    settings = {'plugindir': "plugins",
-                'currentdbdir': "databases",
+    settings = {'plugindir':     "plugins",
+                'basepath':      ".",
+                'currentdbdir':  "databases",
                 'previousdbdir': "previous",
-                'pendingdbdir': "pending",
-                'log_file': "default.log", 
-                'marker': "FINISHED_DOWNLOAD", 
-                'modulename': "__init__",
+                'pendingdbdir':  "pending",
+                'log_file':      "default.log", 
+                'marker':        "FINISHED_DOWNLOAD", 
     }
     return settings
 
@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     #set up options
     settings = get_settings()
-    basepath = '.'
+    basepath = settings['basepath']
     plugindir = os.path.join(basepath, settings['plugindir'])
     currentdbdir = os.path.join(basepath, settings['currentdbdir'])
     previousdbdir = os.path.join(basepath, settings['previousdbdir'])
