@@ -65,8 +65,8 @@ def get_settings():
 def update_latest(run, data, databases, dbname, latest, stable, previous, update, fldownloaded, flwontupdate):
     ldir = os.readlink(os.path.join(databases, dbname, latest))
     sdir = os.readlink(os.path.join(databases, dbname, stable))
-    pdir = os.readlink(os.path.join(databases, dbname, prevous))
-    ndir = os.readlink(os.path.join(data, '{}-{}'.format(dbname, update)))
+    pdir = os.readlink(os.path.join(databases, dbname, previous))
+    ndir = os.path.join(data, '{}-{}'.format(dbname, update))
     if ldir == sdir or ldir == pdir:
         shutil.copytree(ldir, ndir)
     else: 
@@ -206,9 +206,16 @@ if __name__ == "__main__":
                 if os.path.isfile(downloaded):
                     os.remove(downloaded)
                     timestr = time.strftime("%H%M%S", time.localtime())
-                    ndir = os.path.join(data, '{}-{}'.format(e, tstr))
+                    ndir = os.path.join(data, '{}-{}'.format(e, timestr))
                     shutil.move(UPDATEDIR, ndir)
+                    os.remove(LATEST)
                     os.symlink(ndir, LATEST)
+                    #try:
+                    #    os.symlink(ndir, LATEST)
+                    #except OSError, err:
+                    #    if err == errno.EEXIST:
+                    #        os.remove(LATEST)
+                    #        os.symlink(ndir, LATEST)
 
                 # status
                 status[e] = dict(

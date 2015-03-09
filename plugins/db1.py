@@ -22,7 +22,8 @@ def check_update_stable(PATH, FLAGUPDATESTABLE):
 def check_update_daily(PATH, LATEST, FLAGUPDATE):
     #UPDATE = check_update(PATH, LATEST)
     UPDATE = True
-    os.makedirs(PATH)
+    if not os.path.exists(PATH):
+        os.makedirs(PATH)
     if UPDATE:
         open('{}/{}'.format(PATH, FLAGUPDATE), 'w').close()
     else:
