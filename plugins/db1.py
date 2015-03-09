@@ -22,6 +22,7 @@ def check_update_stable(PATH, FLAGUPDATESTABLE):
 def check_update_daily(PATH, LATEST, FLAGUPDATE):
     #UPDATE = check_update(PATH, LATEST)
     UPDATE = True
+    os.makedirs(PATH)
     if UPDATE:
         open('{}/{}'.format(PATH, FLAGUPDATE), 'w').close()
     else:
@@ -30,7 +31,7 @@ def check_update_daily(PATH, LATEST, FLAGUPDATE):
 
 
 def run(PATH, FLAGFINISHED, FLAGWONTUPDATE):
-
+    print 'PATH: ' + PATH
     open('{}/DATABASE_1'.format(PATH), 'w').close()
     time.sleep(5)
 

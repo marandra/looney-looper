@@ -62,15 +62,18 @@ def get_settings():
 #    return
 
 
-def update_latest(data, databases, dbname, latest, stable, previous, update):
+def update_latest(run, data, databases, dbname, latest, stable, previous, update, fldownloaded, flwontupdate):
     ldir = os.readlink(os.path.join(databases, dbname, latest))
     sdir = os.readlink(os.path.join(databases, dbname, stable))
     pdir = os.readlink(os.path.join(databases, dbname, prevous))
     ndir = os.readlink(os.path.join(data, '{}-{}'.format(dbname, update)))
     if ldir == sdir or ldir == pdir:
         shutil.copytree(ldir, ndir)
-    else 
+    else: 
         shutil.move(ldir, ndir)
+    print "USE THREADS"
+    run(ndir, fldownloaded, flwontupdate)
+    
     return
 
 #def check_incomplete_dl(dbname, t0dir, markerdownloaded):
@@ -138,13 +141,14 @@ if __name__ == "__main__":
 
     try:
         plugins = update_plugin_list(plugindir)
+        runscr = {}
         person = {}
         email = {}
         flagdownloaded = []
         for i, e in enumerate(plugins):
             module = importlib.import_module('plugins.{}'.format(e))
             update = getattr(module, 'check_update_daily')
-            runscr = getattr(module, 'run')
+            runscr[e] = getattr(module, 'run')
             second = getattr(module, 'second')
             minute = getattr(module, 'minute')
             hour = getattr(module, 'hour')
@@ -152,7 +156,7 @@ if __name__ == "__main__":
             person[e] = getattr(module, 'person')
             email[e] = getattr(module, 'email')
             datadbupdate = os.path.join(data, '{}-updating'.format(e))
-            flagdownloaded.append(os.path.join(pendingdb, settings['markerdownloaded']))
+            #flagdownloaded.append(os.path.join(pendingdb, settings['markerdownloaded']))
 
  
             print e, second, minute, hour, doweek
@@ -185,7 +189,7 @@ if __name__ == "__main__":
                 updateme = os.path.join(UPDATEDIR, flupdate)
                 if os.path.isfile(updateme):
                     shutil.rmtree(UPDATEDIR)
-                    update_latest(UPDATEDIR, e)
+                    update_latest(runscr[e], data, databases, e, 'latest', 'stable', 'previous', 'updating', fldownloaded, flwontupdate)
                     dlstatus = 'updating'
 
                 # there is not db to update
