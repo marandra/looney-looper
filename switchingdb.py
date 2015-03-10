@@ -1,10 +1,7 @@
 #!/usr/bin/env python2.7
 
-#import argparse
-#import ConfigParser
-#import subprocess
-#from pprint import pprint #only for development
-##from sh import rsync
+# import argparse
+# import ConfigParser
 
 import logging
 import logging.handlers
@@ -17,10 +14,11 @@ import importlib
 import glob
 import threading
 
-################################################################################
+
+###############################################################################
 def update_plugin_list(pluginsdir):
     fi = open(os.path.join(pluginsdir, '__init__.py'), 'w')
-    modules = glob.glob(os.path.join(pluginsdir,'*.py'))
+    modules = glob.glob(os.path.join(pluginsdir, '*.py'))
     all = [os.path.basename(f)[:-3] for f in modules]
     all.remove('__init__')
     fi.write('__all__ = {}'.format(all))
@@ -30,7 +28,7 @@ def update_plugin_list(pluginsdir):
 
 
 def get_settings():
-    #defaults
+    # defaults
     configfile = './datamover.ini'
     sectname = 'config'
     settings = {
@@ -38,34 +36,28 @@ def get_settings():
                 'plugindir': "plugins",
                 'databases': "databases",
                 'data': "data",
-                'markerupdated': "FINISHED_DOWNLOAD", 
-                'markerwontupdate': "WILL_NOT_UPDATE", 
-                'markerupdate': "UPDATEME", 
-                'markerupdatestable': "UPDATEME_STABLE", 
-                'log_file': "default.log", 
+                'markerupdated': "FINISHED_DOWNLOAD",
+                'markerwontupdate': "WILL_NOT_UPDATE",
+                'markerupdate': "UPDATEME",
+                'markerupdatestable': "UPDATEME_STABLE",
+                'log_file': "default.log",
     }
     return settings
 
 
-def update_latest(run, data, databases, dbname, latest, stable, previous, update, fldownloaded, flwontupdate):
+def update_latest(run, data, databases, dbname, latest, stable, previous,
+                  update, fldownloaded, flwontupdate):
     ldir = os.readlink(os.path.join(databases, dbname, latest))
     ndir = os.path.join(data, '{}-{}'.format(dbname, update))
     shutil.copytree(ldir, ndir)
-    run_thread = threading.Thread(target=run, args=[ndir, fldownloaded, flwontupdate])
+    run_thread = threading.Thread(target=run,
+                                  args=[ndir, fldownloaded, flwontupdate])
     run_thread.start()
     return
 
 
-#def check_incomplete_dl(dbname, t0dir, markerdownloaded):
-#    t0dbpath = os.path.join(t0dir, dbname)
-#    flagdl = os.path.join(t0dbpath, markerdownloaded)
-#    if not os.path.isfile(flagdl):
-#        shutil.rmtree(t0dbpath)
-#        os.makedirs(t0dbpath)
-#    return
-
 def update_status(statusdict, fname, fsched):
-    # header 
+    # header
     fo = open(fname, 'w')
     fs = open(fsched, 'r')
     timestr = time.strftime("%d %b %Y %H:%M:%S", time.localtime())
@@ -79,7 +71,7 @@ def update_status(statusdict, fname, fsched):
         'Responsable',
         'Email'))
     fo.write(''.join(line))
-    # jobs 
+    # jobs
     firstline = True
     for job in fs:
         if firstline:
@@ -100,7 +92,9 @@ def update_status(statusdict, fname, fsched):
     fs.close()
     return
 
-def initial_state(data, databases, e, latest, stable, previous, updating, update_stable):
+
+def initial_state(data, databases, e, latest, stable, previous,
+                  updating, update_stable):
 
     fail = False
 
@@ -115,13 +109,13 @@ def initial_state(data, databases, e, latest, stable, previous, updating, update
         print "ERROR: {} exists".format(xdir)
         fail = True
     # Test 3: No more that 3 directories
-    dirpattern = os.path.join(data,'{}-*'.format(e))
+    dirpattern = os.path.join(data, '{}-*'.format(e))
     if len(glob.glob(dirpattern)) > 3:
         print "ERROR: More that 3 directories: {}".format(dirpattern)
         fail = True
 
     # Test 4: Check correct linking
-    listing = glob.glob(os.path.join(data,'{}-*'.format(e)))
+    listing = glob.glob(os.path.join(data, '{}-*'.format(e)))
     listing.sort()
     LATEST = os.path.join(databases, e, latest)
     STABLE = os.path.join(databases, e, stable)
@@ -129,24 +123,49 @@ def initial_state(data, databases, e, latest, stable, previous, updating, update
 
     # No directories. Create initial structure
     if len(listing) == 0:
-        ndir = os.path.join(data,'{}-initial'.format(e))
+        ndir = os.path.join(data, '{}-initial'.format(e))
         os.makedirs(ndir)
-        os.remove(LATEST)
+        try:
+            os.remove(LATEST)
+        except:
+            pass
+        try:
+            os.makedirs(os.path.join(databases, e))
+        except:
+            pass
         os.symlink(ndir, LATEST)
-        os.remove(STABLE)
+        try:
+           os.remove(STABLE)
+        except:
+            pass
         os.symlink(ndir, STABLE)
-        os.remove(PREVIOUS)
+        try:
+           os.remove(PREVIOUS)
+        except:
+            pass
         os.symlink(ndir, PREVIOUS)
-    # 
+
     if len(listing) == 1:
-        ndir = listing[0]
-        os.remove(LATEST)
-        os.symlink(ndir, LATEST)
-        os.remove(STABLE)
-        os.symlink(ndir, STABLE)
-        os.remove(PREVIOUS)
-        os.symlink(ndir, PREVIOUS)
-    #
+        try:
+            os.makedirs(os.path.join(databases, e))
+        except:
+            pass
+        try:
+            os.remove(LATEST)
+        except:
+            pass
+        os.symlink(listing[0], LATEST)
+        try:
+            os.remove(STABLE)
+        except:
+            pass
+        os.symlink(listing[0], STABLE)
+        try:
+            os.remove(PREVIOUS)
+        except:
+            pass
+        os.symlink(listing[0], PREVIOUS)
+
     if len(listing) == 2:
         # oldest goes to "previous"
         ndir = listing[0]
@@ -162,7 +181,7 @@ def initial_state(data, databases, e, latest, stable, previous, updating, update
         except:
             pass
         os.symlink(ndir, LATEST)
-        # check that "stable" points to one of the two, if not assign it to newest
+        # "stable" points anyone, if not, assign it to newest
         try:
             sdir = os.readlink(STABLE)
             if not sdir == listing[0] and not sdir == listing[1]:
@@ -170,7 +189,7 @@ def initial_state(data, databases, e, latest, stable, previous, updating, update
                 os.symlink(ndir, STABLE)
         except:
             os.symlink(ndir, STABLE)
-    #
+
     if len(listing) == 3:
         try:
             os.remove(PREVIOUS)
@@ -189,12 +208,12 @@ def initial_state(data, databases, e, latest, stable, previous, updating, update
         os.symlink(listing[2], LATEST)
 
     return fail
- 
+
 #######################################################################
-#main
+# main
 if __name__ == "__main__":
 
-    #set up options
+    # set up options
     settings = get_settings()
     basepath = settings['basepath']
     plugindir = os.path.join(basepath, settings['plugindir'])
@@ -204,17 +223,17 @@ if __name__ == "__main__":
     flwontupdate = settings['markerwontupdate']
     flupdate = settings['markerupdate']
     flupdatestable = settings['markerupdatestable']
-   
+
     # our plugins directory
     f = open('{}/{}'.format(plugindir, '__init__.py'), 'w').close()
     import plugins
 
-    #set up logging and scheduler
+    # set up logging and scheduler
     logging.basicConfig()
     scheduler = BackgroundScheduler()
 
     try:
-    #inital run. registration of plugins
+        # inital run. registration of plugins
         plugins = update_plugin_list(plugindir)
         runscr = {}
         person = {}
@@ -236,36 +255,33 @@ if __name__ == "__main__":
             person[e] = getattr(module, 'person')
             email[e] = getattr(module, 'email')
             datadbupdate = os.path.join(data, '{}-updating'.format(e))
-            
+
             # check start up state
-            fail = initial_state(data, databases, e, 'latest', 'stable', 'previous',
-                'updating', 'update-stable')
+            fail = initial_state(data, databases, e, 'latest', 'stable',
+                                 'previous', 'updating', 'update-stable')
             if fail:
-                raise Exception, 'Unclean inital state'
+                raise Exception('Unclean inital state')
 
             # register jobs (daily and stable)
             LATEST = os.path.join(databases, e, 'latest')
             udir = os.path.join(data, '{}-updating'.format(e))
             arguments = [udir, LATEST, flupdate]
-            scheduler.add_job(update_daily, 'cron', args = arguments, name = e,
-                day_of_week = doweek, hour = hour, minute = minute, second = second)
+            scheduler.add_job(
+                update_daily, 'cron', args=arguments, name=e,
+                day_of_week=doweek, hour=hour, minute=minute, second=second)
             usdir = os.path.join(data, '{}-update-stable'.format(e))
             arguments = [usdir, LATEST, flupdatestable]
-            scheduler.add_job(update_stable, 'cron', args = arguments, name = '{}-stable'.format(e),
-                day_of_week = stable_doweek, hour = stable_hour, minute = stable_minute, second = stable_second)
+            scheduler.add_job(
+                update_stable, 'cron', args=arguments,
+                name='{}-stable'.format(e), day_of_week=stable_doweek,
+                hour=stable_hour, minute=stable_minute, second=stable_second)
 
-        #for i, e in enumerate(plugins):
-            # cleaning pass: check for pending complete download
-            #check_finished_dl(e, pendingdbdir, currentdbdir, previousdbdir, settings['markerdownloaded'])
-            # cleaning pass: check for incomplete download
-            #check_incomplete_dl(e, pendingdbdir, settings['markerdownloaded'])
-        
         scheduler.start()
 
         while True:
             time.sleep(2)
             fo = open('schedulerjobs.log', 'w')
-            scheduler.print_jobs(out = fo)
+            scheduler.print_jobs(out=fo)
             fo.close()
             status = {}
             for i, e in enumerate(plugins):
@@ -277,7 +293,9 @@ if __name__ == "__main__":
                 updateme = os.path.join(udir, flupdate)
                 if os.path.isfile(updateme):
                     shutil.rmtree(udir)
-                    update_latest(runscr[e], data, databases, e, 'latest', 'stable', 'previous', 'updating', fldownloaded, flwontupdate)
+                    update_latest(
+                        runscr[e], data, databases, e, 'latest', 'stable',
+                        'previous', 'updating', fldownloaded, flwontupdate)
                     dlstatus = 'updating'
 
                 # there is not db to update
@@ -289,17 +307,21 @@ if __name__ == "__main__":
                 if os.path.exists(udir):
                     dlstatus = 'updating'
 
+                LATEST = os.path.join(databases, e, 'latest')
+                STABLE = os.path.join(databases, e, 'stable')
+                PREVIOUS = os.path.join(databases, e, 'previous')
+
                 # finished downloading. mv directories, update symlink.
                 downloaded = os.path.join(udir, fldownloaded)
                 if os.path.isfile(downloaded):
                     os.remove(downloaded)
                     timestr = time.strftime("%H:%M:%S", time.localtime())
-                    ldir = os.readlink(os.path.join(databases, e, 'latest'))
-                    sdir = os.readlink(os.path.join(databases, e, 'stable'))
-                    pdir = os.readlink(os.path.join(databases, e, 'previous'))
+                    ldir = os.readlink(LATEST)
+                    sdir = os.readlink(STABLE)
+                    pdir = os.readlink(PREVIOUS)
                     ndir = os.path.join(data, '{}-{}'.format(e, timestr))
                     shutil.move(udir, ndir)
-                    #are there other symlink pointing to LATEST?
+                    # are there other symlink pointing to LATEST?
                     if ldir == sdir or ldir == pdir:
                         os.remove(LATEST)
                         os.symlink(ndir, LATEST)
@@ -310,9 +332,6 @@ if __name__ == "__main__":
 
                 # update stable if there is not daily update running
                 usdir = os.path.join(data, '{}-update-stable'.format(e))
-                LATEST = os.path.join(databases, e, 'latest')
-                STABLE = os.path.join(databases, e, 'stable')
-                PREVIOUS = os.path.join(databases, e, 'previous')
                 ldir = os.readlink(LATEST)
                 sdir = os.readlink(STABLE)
                 pdir = os.readlink(PREVIOUS)
@@ -324,11 +343,11 @@ if __name__ == "__main__":
                         os.remove(STABLE)
                         os.symlink(ldir, STABLE)
 
-                status[e] = dict(status = dlstatus, person = person[e], email = email[e])
+                status[e] = dict(
+                    status=dlstatus, person=person[e], email=email[e])
 
             update_status(status, 'status.log', 'schedulerjobs.log')
-            
-    except (KeyboardInterrupt, SystemExit):
-         scheduler.shutdown()
-#        logger.info('Cancelled')
 
+    except (KeyboardInterrupt, SystemExit):
+        scheduler.shutdown()
+#        logger.info('Cancelled')
