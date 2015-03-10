@@ -33,18 +33,16 @@ def get_settings():
     #defaults
     configfile = './datamover.ini'
     sectname = 'config'
-    settings = {'plugindir': "plugins",
-                'basepath': ".",
-                'currentdbdir': "databases",
-                'previousdbdir': "previous",
-                'pendingdbdir': "pending",
-                'log_file': "default.log", 
+    settings = {
+                'basepath': "/home/marcelo/Projects/switching-db",
+                'plugindir': "plugins",
+                'databases': "databases",
+                'data': "data",
                 'markerdownloaded': "FINISHED_DOWNLOAD", 
                 'markerwontupdate': "WILL_NOT_UPDATE", 
                 'markerupdate': "UPDATEME", 
                 'markerupdatestable': "UPDATEME_STABLE", 
-                'databases': "databases",
-                'data': "data",
+                'log_file': "default.log", 
     }
     return settings
 
@@ -65,18 +63,12 @@ def get_settings():
 
 def update_latest(run, data, databases, dbname, latest, stable, previous, update, fldownloaded, flwontupdate):
     ldir = os.readlink(os.path.join(databases, dbname, latest))
-    sdir = os.readlink(os.path.join(databases, dbname, stable))
-    pdir = os.readlink(os.path.join(databases, dbname, previous))
     ndir = os.path.join(data, '{}-{}'.format(dbname, update))
-    if ldir == sdir or ldir == pdir:
-        shutil.copytree(ldir, ndir)
-    else: 
-        shutil.move(ldir, ndir)
-    print "USE THREADS"
+    shutil.copytree(ldir, ndir)
     run_thread = threading.Thread(target=run, args=[ndir, fldownloaded, flwontupdate])
     run_thread.start()
-    
     return
+
 
 #def check_incomplete_dl(dbname, t0dir, markerdownloaded):
 #    t0dbpath = os.path.join(t0dir, dbname)
@@ -185,33 +177,42 @@ if __name__ == "__main__":
             for i, e in enumerate(plugins):
 
                 dlstatus = 'up_to_date'
-                UPDATEDIR = os.path.join(data, '{}-updating'.format(e))
+                udir = os.path.join(data, '{}-updating'.format(e))
 
                 # there is a db to update
-                updateme = os.path.join(UPDATEDIR, flupdate)
+                updateme = os.path.join(udir, flupdate)
                 if os.path.isfile(updateme):
-                    shutil.rmtree(UPDATEDIR)
+                    shutil.rmtree(udir)
                     update_latest(runscr[e], data, databases, e, 'latest', 'stable', 'previous', 'updating', fldownloaded, flwontupdate)
                     dlstatus = 'updating'
 
                 # there is not db to update
-                dont_updateme = os.path.join(UPDATEDIR, flwontupdate)
+                dont_updateme = os.path.join(udir, flwontupdate)
                 if os.path.isfile(dont_updateme):
-                    shutil.rmtree(UPDATEDIR)
+                    shutil.rmtree(udir)
 
                 # is there a db updating?
-                if os.path.exists(UPDATEDIR):
+                if os.path.exists(udir):
                     dlstatus = 'updating'
 
-                # finished downloading. m vdirectories, update symlink.
-                downloaded = os.path.join(UPDATEDIR, fldownloaded)
+                # finished downloading. mv directories, update symlink.
+                downloaded = os.path.join(udir, fldownloaded)
                 if os.path.isfile(downloaded):
                     os.remove(downloaded)
-                    timestr = time.strftime("%H%M%S", time.localtime())
+                    timestr = time.strftime("%H:%M:%S", time.localtime())
+                    ldir = os.readlink(os.path.join(databases, e, 'latest'))
+                    sdir = os.readlink(os.path.join(databases, e, 'stable'))
+                    pdir = os.readlink(os.path.join(databases, e, 'previous'))
                     ndir = os.path.join(data, '{}-{}'.format(e, timestr))
-                    shutil.move(UPDATEDIR, ndir)
-                    os.remove(LATEST)
-                    os.symlink(ndir, LATEST)
+                    shutil.move(udir, ndir)
+                    #are there other symlink pointing to LATEST?
+                    if ldir == sdir or ldir == pdir:
+                        os.remove(LATEST)
+                        os.symlink(ndir, LATEST)
+                    else: 
+                        shutil.rmtree(ldir)
+                        os.remove(LATEST)
+                        os.symlink(ndir, LATEST)
                     #try:
                     #    os.symlink(ndir, LATEST)
                     #except OSError, err:
