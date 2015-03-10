@@ -38,7 +38,7 @@ def get_settings():
                 'plugindir': "plugins",
                 'databases': "databases",
                 'data': "data",
-                'markerdownloaded': "FINISHED_DOWNLOAD", 
+                'markerupdated': "FINISHED_DOWNLOAD", 
                 'markerwontupdate': "WILL_NOT_UPDATE", 
                 'markerupdate': "UPDATEME", 
                 'markerupdatestable': "UPDATEME_STABLE", 
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     plugindir = os.path.join(basepath, settings['plugindir'])
     data = os.path.join(basepath, settings['data'])
     databases = os.path.join(basepath, settings['databases'])
-    fldownloaded = settings['markerdownloaded']
+    fldownloaded = settings['markerupdated']
     flwontupdate = settings['markerwontupdate']
     flupdate = settings['markerupdate']
     flupdatestable = settings['markerupdatestable']
@@ -141,25 +141,31 @@ if __name__ == "__main__":
         flagdownloaded = []
         for i, e in enumerate(plugins):
             module = importlib.import_module('plugins.{}'.format(e))
-            update = getattr(module, 'check_update_daily')
+            update_daily = getattr(module, 'check_update_daily')
+            update_stable = getattr(module, 'check_update_stable')
             runscr[e] = getattr(module, 'run')
             second = getattr(module, 'second')
             minute = getattr(module, 'minute')
             hour = getattr(module, 'hour')
             doweek = getattr(module, 'day_of_week')
+            stable_second = getattr(module, 'stable_second')
+            stable_minute = getattr(module, 'stable_minute')
+            stable_hour = getattr(module, 'stable_hour')
+            stable_doweek = getattr(module, 'stable_day_of_week')
             person[e] = getattr(module, 'person')
             email[e] = getattr(module, 'email')
             datadbupdate = os.path.join(data, '{}-updating'.format(e))
-            #flagdownloaded.append(os.path.join(pendingdb, settings['markerdownloaded']))
-
- 
-            print e, second, minute, hour, doweek
             
+            # register jobs (daily and stable)
             LATEST = os.path.join(databases, e, 'latest')
-            UPDATE = os.path.join(data, '{}-updating'.format(e))
-            arguments = [UPDATE, LATEST, flupdate]
-            scheduler.add_job(update, 'cron', args = arguments, name = e,
+            udir = os.path.join(data, '{}-updating'.format(e))
+            arguments = [udir, LATEST, flupdate]
+            scheduler.add_job(update_daily, 'cron', args = arguments, name = e,
                 day_of_week = doweek, hour = hour, minute = minute, second = second)
+            udir = os.path.join(data, '{}-update-stable'.format(e))
+            arguments = [udir, LATEST, flupdatestable]
+            scheduler.add_job(update_stable, 'cron', args = arguments, name = '{}-stable'.format(e),
+                day_of_week = stable_doweek, hour = stable_hour, minute = stable_minute, second = stable_second)
 
         #for i, e in enumerate(plugins):
             # cleaning pass: check for pending complete download
@@ -209,7 +215,7 @@ if __name__ == "__main__":
                     if ldir == sdir or ldir == pdir:
                         os.remove(LATEST)
                         os.symlink(ndir, LATEST)
-                    else: 
+                    else:
                         shutil.rmtree(ldir)
                         os.remove(LATEST)
                         os.symlink(ndir, LATEST)
@@ -219,6 +225,20 @@ if __name__ == "__main__":
                     #    if err == errno.EEXIST:
                     #        os.remove(LATEST)
                     #        os.symlink(ndir, LATEST)
+
+                # update stable if there is not daily update running
+                usdir = os.path.join(data, '{}-update-stable'.format(e))
+                LATEST = os.path.join(databases, e, 'latest')
+                STABLE = os.path.join(databases, e, 'stable')
+                PREVIOUS = os.path.join(databases, e, 'previous')
+                ldir = os.readlink(LATEST)
+                sdir = os.readlink(STABLE)
+                pdir = os.readlink(PREVIOUS)
+                if os.path.exists(usdir) and not os.path.exists(udir):
+                        #os.remove(PREVIOUS)
+                        #os.symlink(sdir, PREVIOUS)
+                        os.remove(STABLE)
+                        os.symlink(ldir, STABLE)
 
                 # status
                 status[e] = dict(
