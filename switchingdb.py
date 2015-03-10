@@ -96,11 +96,99 @@ def update_status(statusdict, fname, fsched):
         line = '{:<16s}{:<13s}{:<26s}{:<19}{:<60s}\n'.format(
             dbname, status, nextupdate, person, email)
         fo.write(line)
-
     fo.close()
     fs.close()
     return
 
+def initial_state(data, databases, e, latest, stable, previous, updating, update_stable):
+
+    fail = False
+
+    # Test 1: No *-updating directories
+    xdir = os.path.join(data, '{}-{}'.format(e, updating))
+    if os.path.exists(xdir):
+        print "ERROR: {} exists".format(xdir)
+        fail = True
+    # Test 2: No *-update-stable directories
+    xdir = os.path.join(data, '{}-{}'.format(e, update_stable))
+    if os.path.exists(xdir):
+        print "ERROR: {} exists".format(xdir)
+        fail = True
+    # Test 3: No more that 3 directories
+    dirpattern = os.path.join(data,'{}-*'.format(e))
+    if len(glob.glob(dirpattern)) > 3:
+        print "ERROR: More that 3 directories: {}".format(dirpattern)
+        fail = True
+
+    # Test 4: Check correct linking
+    listing = glob.glob(os.path.join(data,'{}-*'.format(e)))
+    listing.sort()
+    LATEST = os.path.join(databases, e, latest)
+    STABLE = os.path.join(databases, e, stable)
+    PREVIOUS = os.path.join(databases, e, previous)
+
+    # No directories. Create initial structure
+    if len(listing) == 0:
+        ndir = os.path.join(data,'{}-initial'.format(e))
+        os.makedirs(ndir)
+        os.remove(LATEST)
+        os.symlink(ndir, LATEST)
+        os.remove(STABLE)
+        os.symlink(ndir, STABLE)
+        os.remove(PREVIOUS)
+        os.symlink(ndir, PREVIOUS)
+    # 
+    if len(listing) == 1:
+        ndir = listing[0]
+        os.remove(LATEST)
+        os.symlink(ndir, LATEST)
+        os.remove(STABLE)
+        os.symlink(ndir, STABLE)
+        os.remove(PREVIOUS)
+        os.symlink(ndir, PREVIOUS)
+    #
+    if len(listing) == 2:
+        # oldest goes to "previous"
+        ndir = listing[0]
+        try:
+            os.remove(PREVIOUS)
+        except:
+            pass
+        os.symlink(ndir, PREVIOUS)
+        # newest goes to "latest"
+        ndir = listing[1]
+        try:
+            os.remove(LATEST)
+        except:
+            pass
+        os.symlink(ndir, LATEST)
+        # check that "stable" points to one of the two, if not assign it to newest
+        try:
+            sdir = os.readlink(STABLE)
+            if not sdir == listing[0] and not sdir == listing[1]:
+                os.remove(STABLE)
+                os.symlink(ndir, STABLE)
+        except:
+            os.symlink(ndir, STABLE)
+    #
+    if len(listing) == 3:
+        try:
+            os.remove(PREVIOUS)
+        except:
+            pass
+        os.symlink(listing[0], PREVIOUS)
+        try:
+            os.remove(STABLE)
+        except:
+            pass
+        os.symlink(listing[1], STABLE)
+        try:
+            os.remove(LATEST)
+        except:
+            pass
+        os.symlink(listing[2], LATEST)
+
+    return fail
  
 #######################################################################
 #main
@@ -149,6 +237,12 @@ if __name__ == "__main__":
             email[e] = getattr(module, 'email')
             datadbupdate = os.path.join(data, '{}-updating'.format(e))
             
+            # check start up state
+            fail = initial_state(data, databases, e, 'latest', 'stable', 'previous',
+                'updating', 'update-stable')
+            if fail:
+                raise Exception, 'Unclean inital state'
+
             # register jobs (daily and stable)
             LATEST = os.path.join(databases, e, 'latest')
             udir = os.path.join(data, '{}-updating'.format(e))
