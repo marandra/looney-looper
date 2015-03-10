@@ -6,24 +6,26 @@ second = '*/20'
 minute = '*'
 hour = '*'
 day_of_week = '*'
-stable_second = '*'
-stable_minute = '*/1'
+stable_second = '*/60'
+stable_minute = '*'
 stable_hour = '*'
 stable_day_of_week = '*'
 person = 'Ross Mccants'
 email = 'ross.mccants@unibas.ch'
 
 
-def check_update_stable(PATH, FLAGUPDATESTABLE):
+def check_update_stable(PATH, LATEST, FLAGUPDATESTABLE):
+    os.makedirs(PATH)
     open('{}/{}'.format(PATH, FLAGUPDATESTABLE), 'w').close()
     return
 
 
 def check_update_daily(PATH, LATEST, FLAGUPDATE):
+    os.makedirs(PATH)
+
     #UPDATE = check_update(PATH, LATEST)
     UPDATE = True
-    if not os.path.exists(PATH):
-        os.makedirs(PATH)
+
     if UPDATE:
         open('{}/{}'.format(PATH, FLAGUPDATE), 'w').close()
     else:

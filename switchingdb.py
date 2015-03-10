@@ -162,8 +162,8 @@ if __name__ == "__main__":
             arguments = [udir, LATEST, flupdate]
             scheduler.add_job(update_daily, 'cron', args = arguments, name = e,
                 day_of_week = doweek, hour = hour, minute = minute, second = second)
-            udir = os.path.join(data, '{}-update-stable'.format(e))
-            arguments = [udir, LATEST, flupdatestable]
+            usdir = os.path.join(data, '{}-update-stable'.format(e))
+            arguments = [usdir, LATEST, flupdatestable]
             scheduler.add_job(update_stable, 'cron', args = arguments, name = '{}-stable'.format(e),
                 day_of_week = stable_doweek, hour = stable_hour, minute = stable_minute, second = stable_second)
 
@@ -235,8 +235,10 @@ if __name__ == "__main__":
                 sdir = os.readlink(STABLE)
                 pdir = os.readlink(PREVIOUS)
                 if os.path.exists(usdir) and not os.path.exists(udir):
-                        #os.remove(PREVIOUS)
-                        #os.symlink(sdir, PREVIOUS)
+                        shutil.rmtree(usdir)
+                        os.remove(PREVIOUS)
+                        shutil.rmtree(pdir)
+                        os.symlink(sdir, PREVIOUS)
                         os.remove(STABLE)
                         os.symlink(ldir, STABLE)
 
