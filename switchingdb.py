@@ -46,20 +46,6 @@ def get_settings():
     }
     return settings
 
-#def check_finished_dl(dbname, datadir, datadbupdate, fldownloaded, flwontupdate):
-#    flagdl = os.path.join(datadbupdate, fldownloaded)
-#    flagwu = os.path.join(datadbupdate, flwontupdate)
-#    if os.path.isdir(datadbupdate):
-#    if os.path.isfile(flagwu):
-#        os.remove(flagwu)
-#    if os.path.isfile(flagdl):
-#        shutil.rmtree(t2dbpath)
-#        os.remove(flagdl)
-#        shutil.move(t1dbpath, t2dir)
-#        shutil.move(t0dbpath, t1dir)
-#        os.makedirs(t0dbpath)
-#    return
-
 
 def update_latest(run, data, databases, dbname, latest, stable, previous, update, fldownloaded, flwontupdate):
     ldir = os.readlink(os.path.join(databases, dbname, latest))
@@ -78,38 +64,44 @@ def update_latest(run, data, databases, dbname, latest, stable, previous, update
 #        os.makedirs(t0dbpath)
 #    return
 
-
-def update_nextupdate(dbname, fj):
-    for line in fj:
-        if line.split()[0] == dbname:
-            time = ' '.join(line.split()[9:12])[:-1]
-    return time
-
-
-def write_status(statusdict, fname):
+def update_status(statusdict, fname, fsched):
+    # header 
     fo = open(fname, 'w')
+    fs = open(fsched, 'r')
+    timestr = time.strftime("%d %b %Y %H:%M:%S", time.localtime())
     line = []
-    line.append('BC2 Data    {}\n'.format(
-        time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
+    line.append('BC2 Data    {}\n'.format(timestr))
     line.append('Live data directory: /import/bc2/data/databases\n\n')
-    line.append('{:<10s}{:<13s}{:<26s}{:<19}{:<60s}\n\n'.format(
+    line.append('{:<16s}{:<13s}{:<26s}{:<19}{:<60s}\n\n'.format(
         'Target',
         'Status',
         'Next update',
         'Responsable',
         'Email'))
     fo.write(''.join(line))
-    for key, val in status.iteritems():
-        line = '{:<10s}{:<13s}{:<26s}{:<19}{:<60s}\n'.format(
-            key,
-            val['status'],
-            val['nextupdate'],
-            val['person'],
-            val['email'])
+    # jobs 
+    firstline = True
+    for job in fs:
+        if firstline:
+            firstline = False
+            continue
+        dbname = job.split()[0]
+        person = statusdict[dbname.split('-stable')[0]]['person']
+        email = statusdict[dbname.split('-stable')[0]]['email']
+        nextupdate = ' '.join(job.split()[9:12])[:-1]
+        if not dbname.split('-')[-1] == 'stable':
+            status = statusdict[dbname]['status']
+        else:
+            status = 'up_to_date'
+        line = '{:<16s}{:<13s}{:<26s}{:<19}{:<60s}\n'.format(
+            dbname, status, nextupdate, person, email)
         fo.write(line)
+
+    fo.close()
+    fs.close()
     return
 
-
+ 
 #######################################################################
 #main
 if __name__ == "__main__":
@@ -134,6 +126,7 @@ if __name__ == "__main__":
     scheduler = BackgroundScheduler()
 
     try:
+    #inital run. registration of plugins
         plugins = update_plugin_list(plugindir)
         runscr = {}
         person = {}
@@ -174,6 +167,7 @@ if __name__ == "__main__":
             #check_incomplete_dl(e, pendingdbdir, settings['markerdownloaded'])
         
         scheduler.start()
+
         while True:
             time.sleep(2)
             fo = open('schedulerjobs.log', 'w')
@@ -219,12 +213,6 @@ if __name__ == "__main__":
                         shutil.rmtree(ldir)
                         os.remove(LATEST)
                         os.symlink(ndir, LATEST)
-                    #try:
-                    #    os.symlink(ndir, LATEST)
-                    #except OSError, err:
-                    #    if err == errno.EEXIST:
-                    #        os.remove(LATEST)
-                    #        os.symlink(ndir, LATEST)
 
                 # update stable if there is not daily update running
                 usdir = os.path.join(data, '{}-update-stable'.format(e))
@@ -242,15 +230,9 @@ if __name__ == "__main__":
                         os.remove(STABLE)
                         os.symlink(ldir, STABLE)
 
-                # status
-                status[e] = dict(
-                    status = dlstatus,
-                    nextupdate = update_nextupdate(e, open('schedulerjobs.log', 'r')),
-                    person = person[e],
-                    email = email[e]
-                )
+                status[e] = dict(status = dlstatus, person = person[e], email = email[e])
 
-            write_status(status, 'status.log')
+            update_status(status, 'status.log', 'schedulerjobs.log')
             
     except (KeyboardInterrupt, SystemExit):
          scheduler.shutdown()

@@ -2,24 +2,46 @@ import time
 import os
 
 #config schedule and contact data
-day_of_week = '*'
-hour = '*'
+second = '*/30'
 minute = '*'
-second = '*/31'
+hour = '*'
+day_of_week = '*'
+stable_second = '*/80'
+stable_minute = '*'
+stable_hour = '*'
+stable_day_of_week = '*'
 person='Fredric Clayborn'
 email='fredric.clayborn@unibas.ch'
 
-def run(PATH, FLAGFINISHED):
 
-    ######## BEGINING OF DOWNLOAD SCRIPT ########
-    timestr = time.strftime("%H:%M:%S", time.localtime())
-    open('{}/DATABASE_2-{}'.format(PATH, timestr), 'w').close()
+def check_update_stable(PATH, LATEST, FLAGUPDATESTABLE):
+    os.makedirs(PATH)
+    open('{}/{}'.format(PATH, FLAGUPDATESTABLE), 'w').close()
+    return
+
+
+def check_update_daily(PATH, LATEST, FLAGUPDATE):
+    os.makedirs(PATH)
+
+    #UPDATE = check_update(PATH, LATEST)
+    UPDATE = True
+
+    if UPDATE:
+        open('{}/{}'.format(PATH, FLAGUPDATE), 'w').close()
+    else:
+        open('{}/{}'.format(PATH, FLAGWONTUPDATE), 'w').close()
+    return
+
+
+def run(PATH, FLAGFINISHED, FLAGWONTUPDATE):
+    print 'PATH: ' + PATH
+    open('{}/DATABASE_2'.format(PATH), 'w').close()
     time.sleep(5)
-    ######## END OF DOWNLOAD SCRIPT ########
 
     open('{}/{}'.format(PATH, FLAGFINISHED), 'w').close()
     return 
 
+############################################
 
 if __name__ == '__main__':
-    run('../pending/db2', 'FINISHED_DOWNLOAD')
+    run('../pending/db1', 'FINISHED_DOWNLOAD')
