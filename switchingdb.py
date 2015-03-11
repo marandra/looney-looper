@@ -307,15 +307,15 @@ if __name__ == "__main__":
                 if os.path.exists(udir):
                     dlstatus = 'updating'
 
-                LATEST = os.path.join(databases, e, 'latest')
-                STABLE = os.path.join(databases, e, 'stable')
-                PREVIOUS = os.path.join(databases, e, 'previous')
-
                 # finished downloading. mv directories, update symlink.
                 downloaded = os.path.join(udir, fldownloaded)
                 if os.path.isfile(downloaded):
                     os.remove(downloaded)
                     timestr = time.strftime("%H:%M:%S", time.localtime())
+                    # update paths and directories
+                    LATEST = os.path.join(databases, e, 'latest')
+                    STABLE = os.path.join(databases, e, 'stable')
+                    PREVIOUS = os.path.join(databases, e, 'previous')
                     ldir = os.readlink(LATEST)
                     sdir = os.readlink(STABLE)
                     pdir = os.readlink(PREVIOUS)
@@ -332,16 +332,22 @@ if __name__ == "__main__":
 
                 # update stable if there is not daily update running
                 usdir = os.path.join(data, '{}-update-stable'.format(e))
-                ldir = os.readlink(LATEST)
-                sdir = os.readlink(STABLE)
-                pdir = os.readlink(PREVIOUS)
                 if os.path.exists(usdir) and not os.path.exists(udir):
-                        shutil.rmtree(usdir)
-                        os.remove(PREVIOUS)
+                    # update paths and directories
+                    LATEST = os.path.join(databases, e, 'latest')
+                    STABLE = os.path.join(databases, e, 'stable')
+                    PREVIOUS = os.path.join(databases, e, 'previous')
+                    ldir = os.readlink(LATEST)
+                    sdir = os.readlink(STABLE)
+                    pdir = os.readlink(PREVIOUS)
+                    shutil.rmtree(usdir)
+                    os.remove(PREVIOUS)
+                    os.symlink(sdir, PREVIOUS)
+                    # initial case, "previous" and "stable" are the same
+                    if not sdir == pdir:
                         shutil.rmtree(pdir)
-                        os.symlink(sdir, PREVIOUS)
-                        os.remove(STABLE)
-                        os.symlink(ldir, STABLE)
+                    os.remove(STABLE)
+                    os.symlink(ldir, STABLE)
 
                 status[e] = dict(
                     status=dlstatus, person=person[e], email=email[e])
