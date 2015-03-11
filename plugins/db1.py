@@ -16,12 +16,14 @@ email = 'ross.mccants@unibas.ch'
 
 def check_update_stable(PATH, LATEST, FLAGUPDATESTABLE):
     os.makedirs(PATH)
+    time.sleep(1)
     open('{}/{}'.format(PATH, FLAGUPDATESTABLE), 'w').close()
     return
 
 
 def check_update_daily(PATH, LATEST, FLAGUPDATE):
     os.makedirs(PATH)
+    time.sleep(1)
 
     #UPDATE = check_update(PATH, LATEST)
     UPDATE = True

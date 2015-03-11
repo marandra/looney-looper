@@ -46,14 +46,14 @@ def get_settings():
 
 
 def update_latest(run, data, databases, dbname, latest, stable, previous,
-                  update, fldownloaded, flwontupdate):
+                  timestr, fldownloaded, flwontupdate):
     ldir = os.readlink(os.path.join(databases, dbname, latest))
-    ndir = os.path.join(data, '{}-{}'.format(dbname, update))
+    ndir = os.path.join(data, '{}-{}'.format(dbname, timestr))
     shutil.copytree(ldir, ndir)
     run_thread = threading.Thread(target=run,
                                   args=[ndir, fldownloaded, flwontupdate])
     run_thread.start()
-    return
+    return ndir
 
 
 def update_status(statusdict, fname, fsched):
@@ -181,7 +181,7 @@ def initial_state(data, databases, e, latest, stable, previous,
         except:
             pass
         os.symlink(ndir, LATEST)
-        # "stable" points anyone, if not, assign it to newest
+        # "stable" points to anyone, if not, assign it to newest
         try:
             sdir = os.readlink(STABLE)
             if not sdir == listing[0] and not sdir == listing[1]:
@@ -254,7 +254,6 @@ if __name__ == "__main__":
             stable_doweek = getattr(module, 'stable_day_of_week')
             person[e] = getattr(module, 'person')
             email[e] = getattr(module, 'email')
-            datadbupdate = os.path.join(data, '{}-updating'.format(e))
 
             # check start up state
             fail = initial_state(data, databases, e, 'latest', 'stable',
@@ -264,13 +263,13 @@ if __name__ == "__main__":
 
             # register jobs (daily and stable)
             LATEST = os.path.join(databases, e, 'latest')
-            udir = os.path.join(data, '{}-updating'.format(e))
-            arguments = [udir, LATEST, flupdate]
+            cudir = os.path.join(data, '{}-check_update'.format(e))
+            arguments = [cudir, LATEST, flupdate]
             scheduler.add_job(
                 update_daily, 'cron', args=arguments, name=e,
                 day_of_week=doweek, hour=hour, minute=minute, second=second)
-            usdir = os.path.join(data, '{}-update-stable'.format(e))
-            arguments = [usdir, LATEST, flupdatestable]
+            cusdir = os.path.join(data, '{}-check_update_stable'.format(e))
+            arguments = [cusdir, LATEST, flupdatestable]
             scheduler.add_job(
                 update_stable, 'cron', args=arguments,
                 name='{}-stable'.format(e), day_of_week=stable_doweek,
@@ -287,31 +286,36 @@ if __name__ == "__main__":
             for i, e in enumerate(plugins):
 
                 dlstatus = 'up_to_date'
-                udir = os.path.join(data, '{}-updating'.format(e))
+                cudir = os.path.join(data, '{}-check_update'.format(e))
+                UPDATING = os.path.join(data, '{}-updating'.format(e))
 
                 # there is a db to update
-                updateme = os.path.join(udir, flupdate)
+                updateme = os.path.join(cudir, flupdate)
                 if os.path.isfile(updateme):
-                    shutil.rmtree(udir)
-                    update_latest(
+                    shutil.rmtree(cudir)
+                    timestr = time.strftime("%H:%M:%S", time.localtime())
+                    ndir = update_latest(
                         runscr[e], data, databases, e, 'latest', 'stable',
-                        'previous', 'updating', fldownloaded, flwontupdate)
+                        'previous', timestr, fldownloaded, flwontupdate)
+                    os.symlink(ndir, UPDATING)
                     dlstatus = 'updating'
 
                 # there is not db to update
-                dont_updateme = os.path.join(udir, flwontupdate)
+                dont_updateme = os.path.join(cudir, flwontupdate)
                 if os.path.isfile(dont_updateme):
-                    shutil.rmtree(udir)
+                    shutil.rmtree(cudir)
 
                 # is there a db updating?
-                if os.path.exists(udir):
+                try:
+                    os.readlink(UPDATING)
                     dlstatus = 'updating'
+                except:
+                    pass
 
                 # finished downloading. mv directories, update symlink.
-                downloaded = os.path.join(udir, fldownloaded)
+                downloaded = os.path.join(UPDATING, fldownloaded)
                 if os.path.isfile(downloaded):
                     os.remove(downloaded)
-                    timestr = time.strftime("%H:%M:%S", time.localtime())
                     # update paths and directories
                     LATEST = os.path.join(databases, e, 'latest')
                     STABLE = os.path.join(databases, e, 'stable')
@@ -319,8 +323,8 @@ if __name__ == "__main__":
                     ldir = os.readlink(LATEST)
                     sdir = os.readlink(STABLE)
                     pdir = os.readlink(PREVIOUS)
-                    ndir = os.path.join(data, '{}-{}'.format(e, timestr))
-                    shutil.move(udir, ndir)
+                    ndir = os.readlink(UPDATING)
+                    os.remove(UPDATING)
                     # are there other symlink pointing to LATEST?
                     if ldir == sdir or ldir == pdir:
                         os.remove(LATEST)
@@ -331,8 +335,8 @@ if __name__ == "__main__":
                         os.symlink(ndir, LATEST)
 
                 # update stable if there is not daily update running
-                usdir = os.path.join(data, '{}-update-stable'.format(e))
-                if os.path.exists(usdir) and not os.path.exists(udir):
+                cusdir = os.path.join(data, '{}-check_update_stable'.format(e))
+                if os.path.exists(cusdir) and not os.path.exists(UPDATING):
                     # update paths and directories
                     LATEST = os.path.join(databases, e, 'latest')
                     STABLE = os.path.join(databases, e, 'stable')
@@ -340,7 +344,7 @@ if __name__ == "__main__":
                     ldir = os.readlink(LATEST)
                     sdir = os.readlink(STABLE)
                     pdir = os.readlink(PREVIOUS)
-                    shutil.rmtree(usdir)
+                    shutil.rmtree(cusdir)
                     os.remove(PREVIOUS)
                     os.symlink(sdir, PREVIOUS)
                     # initial case, "previous" and "stable" are the same
