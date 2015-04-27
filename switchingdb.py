@@ -13,6 +13,7 @@ import shutil
 import importlib
 import glob
 import threading
+import ConfigParser
 
 
 ###############################################################################
@@ -28,20 +29,25 @@ def update_plugin_list(pluginsdir):
 
 
 def get_settings():
-    # defaults
-    configfile = './datamover.ini'
-    sectname = 'config'
+    configparser = ConfigParser.SafeConfigParser(os.environ)
+    configparser.read("./settings.ini")
     settings = {
-                'basepath': "/home/marcelo/Projects/switching-db",
-                'plugindir': "plugins",
-                'databases': "databases",
-                'data': "data",
+                'plugindir': "",
+                'databases': "",
+                'data': "",
                 'markerupdated': "FINISHED_DOWNLOAD",
                 'markerwontupdate': "WILL_NOT_UPDATE",
                 'markerupdate': "UPDATEME",
                 'markerupdatestable': "UPDATEME_STABLE",
                 'log_file': "default.log",
     }
+    try:
+        settings['plugindir'] = configparser.get('server','plugin_repo_path')
+        settings['databases'] = configparser.get('server','db_link_path')
+        settings['data'] = configparser.get('server','db_data_path')
+    except:
+        raise
+
     return settings
 
 
@@ -51,7 +57,7 @@ def update_latest(run, data, databases, dbname, latest, stable, previous,
     ndir = os.path.join(data, '{}-{}'.format(dbname, timestr))
     shutil.copytree(ldir, ndir)
     run_thread = threading.Thread(target=run,
-                                  args=[ndir, fldownloaded, flwontupdate])
+                                  args=[ndir, fldownloaded])
     run_thread.start()
     return ndir
 
@@ -101,17 +107,17 @@ def initial_state(data, databases, e, latest, stable, previous,
     # Test 1: No *-updating directories
     xdir = os.path.join(data, '{}-{}'.format(e, updating))
     if os.path.exists(xdir):
-        print "ERROR: {} exists".format(xdir)
+        logger.error("{} exists".format(xdir))
         fail = True
     # Test 2: No *-update-stable directories
     xdir = os.path.join(data, '{}-{}'.format(e, update_stable))
     if os.path.exists(xdir):
-        print "ERROR: {} exists".format(xdir)
+        logger.error("{} exists".format(xdir))
         fail = True
     # Test 3: No more that 3 directories
     dirpattern = os.path.join(data, '{}-*'.format(e))
     if len(glob.glob(dirpattern)) > 3:
-        print "ERROR: More that 3 directories: {}".format(dirpattern)
+        logger.error("More that 3 directories: {}".format(dirpattern))
         fail = True
 
     # Test 4: Check correct linking
@@ -213,33 +219,34 @@ def initial_state(data, databases, e, latest, stable, previous,
 # main
 if __name__ == "__main__":
 
+    # set up logging and scheduler
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger(__name__)
+    scheduler = BackgroundScheduler()
+
     # set up options
-    settings = get_settings()
-    basepath = settings['basepath']
-    plugindir = os.path.join(basepath, settings['plugindir'])
-    data = os.path.join(basepath, settings['data'])
-    databases = os.path.join(basepath, settings['databases'])
-    fldownloaded = settings['markerupdated']
-    flwontupdate = settings['markerwontupdate']
-    flupdate = settings['markerupdate']
-    flupdatestable = settings['markerupdatestable']
+    plugindir = get_settings()['plugindir']
+    data = get_settings()['data']
+    databases = get_settings()['databases']
+    fldownloaded = get_settings()['markerupdated']
+    flwontupdate = get_settings()['markerwontupdate']
+    flupdate = get_settings()['markerupdate']
+    flupdatestable = get_settings()['markerupdatestable']
 
     # our plugins directory
     f = open('{}/{}'.format(plugindir, '__init__.py'), 'w').close()
     import plugins
 
-    # set up logging and scheduler
-    logging.basicConfig()
-    scheduler = BackgroundScheduler()
-
     try:
         # inital run. registration of plugins
+        logger.info('Started')
         plugins = update_plugin_list(plugindir)
         runscr = {}
         person = {}
         email = {}
         flagdownloaded = []
         for i, e in enumerate(plugins):
+            logger.debug('Loading plugins: {}'.format(e))
             module = importlib.import_module('plugins.{}'.format(e))
             update_daily = getattr(module, 'check_update_daily')
             update_stable = getattr(module, 'check_update_stable')
@@ -264,7 +271,7 @@ if __name__ == "__main__":
             # register jobs (daily and stable)
             LATEST = os.path.join(databases, e, 'latest')
             cudir = os.path.join(data, '{}-check_update'.format(e))
-            arguments = [cudir, LATEST, flupdate]
+            arguments = [cudir, LATEST, flupdate, flwontupdate]
             scheduler.add_job(
                 update_daily, 'cron', args=arguments, name=e,
                 day_of_week=doweek, hour=hour, minute=minute, second=second)
@@ -293,7 +300,7 @@ if __name__ == "__main__":
                 updateme = os.path.join(cudir, flupdate)
                 if os.path.isfile(updateme):
                     shutil.rmtree(cudir)
-                    timestr = time.strftime("%H:%M:%S", time.localtime())
+                    timestr = time.strftime("%y%m%d-%H:%M:%S", time.localtime())
                     ndir = update_latest(
                         runscr[e], data, databases, e, 'latest', 'stable',
                         'previous', timestr, fldownloaded, flwontupdate)
@@ -360,4 +367,4 @@ if __name__ == "__main__":
 
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
-#        logger.info('Cancelled')
+        logger.info('Cancelled')
