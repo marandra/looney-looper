@@ -56,8 +56,8 @@ def update_latest(run, data, databases, dbname, latest, stable, previous,
     ldir = os.readlink(os.path.join(databases, dbname, latest))
     ndir = os.path.join(data, '{}-{}'.format(dbname, timestr))
     # copytree vs mkdir: depending on the strategy, it may be more
-    # efficient to start update from the last version of the database.
-    # For out actual cases is better to start with a clean directory.
+    # efficient to start the update from the last version of the database.
+    # For our actual cases is better to start with a clean directory.
     # shutil.copytree(ldir, ndir)
     os.mkdir(ndir)
     run_thread = threading.Thread(target=run,
@@ -105,21 +105,26 @@ def update_status(statusdict, fname, fsched):
 
 def initial_state(data, databases, e, latest, stable, previous,
                   updating, update_stable, flfrozen):
-
-    fail = False
+    '''
+    Checks that there is a clean and consistent initial state.
+    Function returns 'True' when a test fails.
+    Tests: 
+      Test 1: No *-updating directories
+      Test 2: No *-update-stable directories
+      Test 3: No more that 3 not frozen directories
+    After passing the test, it assigns the links to the present directories
+    '''
 
     # Test 1: No *-updating directories
     xdir = os.path.join(data, '{}-{}'.format(e, updating))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
-        fail = True
-        return fail
+        return True
     # Test 2: No *-update-stable directories
     xdir = os.path.join(data, '{}-{}'.format(e, update_stable))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
-        fail = True
-        return fail
+        return True
     # Test 3: No more that 3 not frozen directories
     pathdirs = os.path.join(data, '{}-*'.format(e))
     alldirs = glob.glob(pathdirs)
@@ -129,22 +134,8 @@ def initial_state(data, databases, e, latest, stable, previous,
     listing = list(set(alldirs) - set(frozendirs))
     if len(listing) > 3:
         logger.error("More than 3 not frozen versions: {}".format(pathdirs))
-        fail = True
-        return fail
-    # Test 4: No unlinked, unfrozen directories
-    LATEST = os.path.join(databases, e, latest)
-    STABLE = os.path.join(databases, e, stable)
-    PREVIOUS = os.path.join(databases, e, previous)
-    ldir = os.readlink(LATEST)
-    sdir = os.readlink(STABLE)
-    pdir = os.readlink(PREVIOUS)
-    unlinkdirs = list(set(listing) - set([ldir, sdir, pdir]))
-    if unlinkdirs:
-        logger.error("Unlinked directories: {}".format(unlinkdirs))
-        fail = True
-        return fail
-    # Test 5: Assign linking
-    listing = glob.glob(os.path.join(data, '{}-*'.format(e)))
+        return True
+    # Assign links to directories
     listing.sort()
     LATEST = os.path.join(databases, e, latest)
     STABLE = os.path.join(databases, e, stable)
@@ -152,13 +143,16 @@ def initial_state(data, databases, e, latest, stable, previous,
     # no directories, create initial structure
     if len(listing) == 0:
         ndir = os.path.join(data, '{}-initial'.format(e))
+        # what happens if there an 'initial' dir already?
         os.makedirs(ndir)
         try:
             os.remove(LATEST)
+        # here catch only (existing dir) exception
         except:
             pass
         try:
             os.makedirs(os.path.join(databases, e))
+        # here catch only (existing dir) exception
         except:
             pass
         os.symlink(ndir, LATEST)
@@ -175,6 +169,7 @@ def initial_state(data, databases, e, latest, stable, previous,
     if len(listing) == 1:
         try:
             os.makedirs(os.path.join(databases, e))
+        # here catch only (existing dir) exception
         except:
             pass
         try:
@@ -232,7 +227,7 @@ def initial_state(data, databases, e, latest, stable, previous,
             pass
         os.symlink(listing[2], LATEST)
 
-    return fail
+    return False
 
 #######################################################################
 # main
