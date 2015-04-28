@@ -1,10 +1,7 @@
 #!/usr/bin/env python2.7
 
-# import argparse
-# import ConfigParser
-
+import ConfigParser
 import logging
-import logging.handlers
 from apscheduler.schedulers.background import BackgroundScheduler
 import time
 import sys
@@ -13,10 +10,8 @@ import shutil
 import importlib
 import glob
 import threading
-import ConfigParser
 
 
-###############################################################################
 def update_plugin_list(pluginsdir):
     fi = open(os.path.join(pluginsdir, '__init__.py'), 'w')
     modules = glob.glob(os.path.join(pluginsdir, '*.py'))
@@ -42,9 +37,9 @@ def get_settings():
                 'log_file': "default.log",
     }
     try:
-        settings['plugindir'] = configparser.get('server','plugin_repo_path')
-        settings['databases'] = configparser.get('server','db_link_path')
-        settings['data'] = configparser.get('server','db_data_path')
+        settings['plugindir'] = configparser.get('server', 'plugin_repo_path')
+        settings['databases'] = configparser.get('server', 'db_link_path')
+        settings['data'] = configparser.get('server', 'db_data_path')
     except:
         raise
 
@@ -53,9 +48,17 @@ def get_settings():
 
 def update_latest(run, data, databases, dbname, latest, stable, previous,
                   timestr, fldownloaded, flwontupdate):
+    '''
+    create new directory and pass it to download function in a new thread
+    '''
+
     ldir = os.readlink(os.path.join(databases, dbname, latest))
     ndir = os.path.join(data, '{}-{}'.format(dbname, timestr))
-    shutil.copytree(ldir, ndir)
+    # copytree vs mkdir: depending on the strategy, it may be more
+    # efficient to start update from the last version of the database.
+    # For out actual cases is better to start with a clean directory.
+    # shutil.copytree(ldir, ndir)
+    os.mkdir(ndir)
     run_thread = threading.Thread(target=run,
                                   args=[ndir, fldownloaded])
     run_thread.start()
@@ -141,12 +144,12 @@ def initial_state(data, databases, e, latest, stable, previous,
             pass
         os.symlink(ndir, LATEST)
         try:
-           os.remove(STABLE)
+            os.remove(STABLE)
         except:
             pass
         os.symlink(ndir, STABLE)
         try:
-           os.remove(PREVIOUS)
+            os.remove(PREVIOUS)
         except:
             pass
         os.symlink(ndir, PREVIOUS)
@@ -300,10 +303,10 @@ if __name__ == "__main__":
                 updateme = os.path.join(cudir, flupdate)
                 if os.path.isfile(updateme):
                     shutil.rmtree(cudir)
-                    timestr = time.strftime("%y%m%d-%H:%M:%S", time.localtime())
+                    tstamp = time.strftime("%y%m%d-%H:%M:%S", time.localtime())
                     ndir = update_latest(
                         runscr[e], data, databases, e, 'latest', 'stable',
-                        'previous', timestr, fldownloaded, flwontupdate)
+                        'previous', tstamp, fldownloaded, flwontupdate)
                     os.symlink(ndir, UPDATING)
                     dlstatus = 'updating'
 

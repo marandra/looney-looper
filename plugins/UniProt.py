@@ -17,7 +17,7 @@ email = 'ross.mccants@unibas.ch'
 
 
 def check_update(PATH, LATEST):
-    ''' 
+    '''
     Make the necessary checks to decide if an update is needed.
     PATH points to a temporary working directory.
     LATEST is directory with the laste version of the database.
@@ -30,9 +30,9 @@ def check_update(PATH, LATEST):
         server = 'ftp.expasy.org'
         path = 'databases/uniprot/current_release/knowledgebase/complete/'
         rfilename = 'reldate.txt'
-        lfilename=os.path.join(PATH, rfilename)
-        ftp = ftplib.FTP(server) 
-        ftp.login() 
+        lfilename = os.path.join(PATH, rfilename)
+        ftp = ftplib.FTP(server)
+        ftp.login()
         ftp.cwd(path)
         ftp.retrbinary("RETR " + rfilename, open(lfilename, 'wb').write)
         ftp.quit()
@@ -43,11 +43,11 @@ def check_update(PATH, LATEST):
     currentrel = os.path.join(PATH, 'reldate.txt')
     previousrel = os.path.join(LATEST, 'reldate.txt')
 
-    if not os.path.isfile(previousrel): 
+    if not os.path.isfile(previousrel):
         logger.debug('Previous release file not present')
         return True
 
-    if filecmp.cmp (currentrel, previousrel):
+    if filecmp.cmp(currentrel, previousrel):
         logger.debug('Release files match. No need to update.')
         return False
     else:
@@ -68,9 +68,9 @@ def run(PATH, FLAG_FINISHED):
         server = 'ftp.expasy.org'
         path = 'databases/uniprot/current_release/knowledgebase/complete/'
         rfilename = 'reldate.txt'
-        lfilename=os.path.join(PATH, rfilename)
-        ftp = ftplib.FTP(server) 
-        ftp.login() 
+        lfilename = os.path.join(PATH, rfilename)
+        ftp = ftplib.FTP(server)
+        ftp.login()
         ftp.cwd(path)
         ftp.retrbinary("RETR " + rfilename, open(lfilename, 'wb').write)
         ftp.quit()
@@ -82,9 +82,9 @@ def run(PATH, FLAG_FINISHED):
         server = 'ftp.expasy.org'
         path = 'databases/uniprot/current_release/knowledgebase/complete/'
         rfilename = 'uniprot_sprot.fasta.gz'
-        lfilename=os.path.join(PATH, rfilename)
-        ftp = ftplib.FTP(server) 
-        ftp.login() 
+        lfilename = os.path.join(PATH, rfilename)
+        ftp = ftplib.FTP(server)
+        ftp.login()
         ftp.cwd(path)
         ftp.retrbinary("RETR " + rfilename, open(lfilename, 'wb').write)
         ftp.quit()
@@ -96,9 +96,9 @@ def run(PATH, FLAG_FINISHED):
         server = 'ftp.expasy.org'
         path = 'databases/uniprot/current_release/knowledgebase/complete/'
         rfilename = 'uniprot_sprot.dat.gz'
-        lfilename=os.path.join(PATH, rfilename)
-        ftp = ftplib.FTP(server) 
-        ftp.login() 
+        lfilename = os.path.join(PATH, rfilename)
+        ftp = ftplib.FTP(server)
+        ftp.login()
         ftp.cwd(path)
         ftp.retrbinary("RETR " + rfilename, open(lfilename, 'wb').write)
         ftp.quit()
@@ -109,33 +109,29 @@ def run(PATH, FLAG_FINISHED):
 
     # write flag indicating download finished
     open(os.path.join(PATH, FLAG_FINISHED), 'w').close()
-    return 
+    return
 
 ############################################
 
 
 def check_update_stable(PATH, LATEST, FLAG_UPDATE_STABLE):
-
     logger = logging.getLogger(__name__)
-
     os.makedirs(PATH)
-    open(os.path.join(PATH, FLAG_UPDATE_STABLE), 'w').close()
-    logger.debug('Created STABLE {}'.format(os.path.join(PATH, FLAG_UPDATE_STABLE)))
+    flagpath = os.path.join(PATH, FLAG_UPDATE_STABLE)
+    open(flagpath, 'w').close()
+    logger.debug('Created STABLE {}'.format(flagpath))
     return
 
 
 def check_update_daily(PATH, LATEST, FLAG_UPDATE, FLAG_WONT_UPDATE):
     logger = logging.getLogger(__name__)
-
     os.makedirs(PATH)
-
     UPDATE = check_update(PATH, LATEST)
-
     if UPDATE:
-        open(os.path.join(PATH, FLAG_UPDATE), 'w').close()
-        logger.debug('Created DAILY {}'.format(os.path.join(PATH, FLAG_UPDATE)))
+        flagpath = os.path.join(PATH, FLAG_UPDATE)
     else:
-        open(os.path.join(PATH, FLAG_WONT_UPDATE), 'w').close()
-        logger.debug('Created DAILY {}'.format(os.path.join(PATH, FLAG_WONT_UPDATE)))
+        flagpath = os.path.join(PATH, FLAG_WONT_UPDATE)
         logger.info('No new updates')
+    open(flagpath, 'w').close()
+    logger.debug('Created DAILY {}'.format(flagpath))
     return
