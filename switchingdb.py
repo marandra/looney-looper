@@ -314,14 +314,17 @@ if __name__ == "__main__":
 
                 # there is a db to update
                 updateme = os.path.join(cudir, flupdate)
-                if os.path.isfile(updateme):
-                    shutil.rmtree(cudir)
+                if os.path.isfile(updateme) and not os.path.exists(UPDATING):
                     tstamp = time.strftime("%y%m%d-%H:%M:%S", time.localtime())
                     ndir = update_latest(
                         runscr[e], data, databases, e, 'latest', 'stable',
                         'previous', tstamp, fldownloaded, flwontupdate)
                     os.symlink(ndir, UPDATING)
                     dlstatus = 'updating'
+                try:
+                    shutil.rmtree(cudir)
+                except:
+                    pass
 
                 # there is not db to update
                 dont_updateme = os.path.join(cudir, flwontupdate)

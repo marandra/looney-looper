@@ -37,7 +37,7 @@ def check_update_daily(PATH, LATEST, FLAG_UPDATE, FLAG_WONT_UPDATE):
         open(os.path.join(PATH, FLAG_WONT_UPDATE), 'w').close()
         logger.debug('Created DAILY {}'.format(os.path.join(PATH, FLAG_WONT_UPDATE)))
         logger.info('Now new updates')
-    return
+    return 
 
 
 def run(PATH, FLAG_FINISHED):

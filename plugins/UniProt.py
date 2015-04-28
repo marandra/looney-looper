@@ -4,12 +4,12 @@ import logging
 import ftplib
 import filecmp
 
-second = '0'
-minute = '*/2'
+second = '*/43'
+minute = '*'
 hour = '*'
 day_of_week = '*'
 stable_second = '0'
-stable_minute = '*/7'
+stable_minute = '*/2'
 stable_hour = '*'
 stable_day_of_week = '*'
 person = 'Ross Mccants'
@@ -91,19 +91,19 @@ def run(PATH, FLAG_FINISHED):
     except Exception, e:
         logging.warn("Error downloading {}: {}".format(rfilename, e))
 
-    logger.debug('Downloading: 3/4')
-    try:
-        server = 'ftp.expasy.org'
-        path = 'databases/uniprot/current_release/knowledgebase/complete/'
-        rfilename = 'uniprot_sprot.dat.gz'
-        lfilename = os.path.join(PATH, rfilename)
-        ftp = ftplib.FTP(server)
-        ftp.login()
-        ftp.cwd(path)
-        ftp.retrbinary("RETR " + rfilename, open(lfilename, 'wb').write)
-        ftp.quit()
-    except Exception, e:
-        logging.warn("Error downloading {}: {}".format(rfilename, e))
+    # logger.debug('Downloading: 3/4')
+    # try:
+    #     server = 'ftp.expasy.org'
+    #     path = 'databases/uniprot/current_release/knowledgebase/complete/'
+    #     rfilename = 'uniprot_sprot.dat.gz'
+    #     lfilename = os.path.join(PATH, rfilename)
+    #     ftp = ftplib.FTP(server)
+    #     ftp.login()
+    #     ftp.cwd(path)
+    #     ftp.retrbinary("RETR " + rfilename, open(lfilename, 'wb').write)
+    #     ftp.quit()
+    # except Exception, e:
+    #     logging.warn("Error downloading {}: {}".format(rfilename, e))
 
     logger.debug('Expanding: 4/4')
 
