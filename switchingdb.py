@@ -34,6 +34,7 @@ def get_settings():
                 'markerwontupdate': "WILL_NOT_UPDATE",
                 'markerupdate': "UPDATEME",
                 'markerupdatestable': "UPDATEME_STABLE",
+                'markerfrozen': "FROZEN_VERSION",
                 'log_file': "default.log",
     }
     try:
@@ -103,7 +104,7 @@ def update_status(statusdict, fname, fsched):
 
 
 def initial_state(data, databases, e, latest, stable, previous,
-                  updating, update_stable):
+                  updating, update_stable, flfrozen):
 
     fail = False
 
@@ -112,25 +113,43 @@ def initial_state(data, databases, e, latest, stable, previous,
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         fail = True
+        return fail
     # Test 2: No *-update-stable directories
     xdir = os.path.join(data, '{}-{}'.format(e, update_stable))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         fail = True
-    # Test 3: No more that 3 directories
-    dirpattern = os.path.join(data, '{}-*'.format(e))
-    if len(glob.glob(dirpattern)) > 3:
-        logger.error("More that 3 directories: {}".format(dirpattern))
+        return fail
+    # Test 3: No more that 3 not frozen directories
+    pathdirs = os.path.join(data, '{}-*'.format(e))
+    alldirs = glob.glob(pathdirs)
+    frozenpath = os.path.join(data, '{}-*'.format(e), flfrozen)
+    frozenflags = glob.glob(frozenpath)
+    frozendirs = [f[:-len('/' + flfrozen)] for f in frozenflags]
+    listing = list(set(alldirs) - set(frozendirs))
+    if len(listing) > 3:
+        logger.error("More than 3 not frozen versions: {}".format(pathdirs))
         fail = True
-
-    # Test 4: Check correct linking
+        return fail
+    # Test 4: No unlinked, unfrozen directories
+    LATEST = os.path.join(databases, e, latest)
+    STABLE = os.path.join(databases, e, stable)
+    PREVIOUS = os.path.join(databases, e, previous)
+    ldir = os.readlink(LATEST)
+    sdir = os.readlink(STABLE)
+    pdir = os.readlink(PREVIOUS)
+    unlinkdirs = list(set(listing) - set([ldir, sdir, pdir]))
+    if unlinkdirs:
+        logger.error("Unlinked directories: {}".format(unlinkdirs))
+        fail = True
+        return fail
+    # Test 5: Assign linking
     listing = glob.glob(os.path.join(data, '{}-*'.format(e)))
     listing.sort()
     LATEST = os.path.join(databases, e, latest)
     STABLE = os.path.join(databases, e, stable)
     PREVIOUS = os.path.join(databases, e, previous)
-
-    # No directories. Create initial structure
+    # no directories, create initial structure
     if len(listing) == 0:
         ndir = os.path.join(data, '{}-initial'.format(e))
         os.makedirs(ndir)
@@ -153,7 +172,6 @@ def initial_state(data, databases, e, latest, stable, previous,
         except:
             pass
         os.symlink(ndir, PREVIOUS)
-
     if len(listing) == 1:
         try:
             os.makedirs(os.path.join(databases, e))
@@ -174,7 +192,6 @@ def initial_state(data, databases, e, latest, stable, previous,
         except:
             pass
         os.symlink(listing[0], PREVIOUS)
-
     if len(listing) == 2:
         # oldest goes to "previous"
         ndir = listing[0]
@@ -198,7 +215,6 @@ def initial_state(data, databases, e, latest, stable, previous,
                 os.symlink(ndir, STABLE)
         except:
             os.symlink(ndir, STABLE)
-
     if len(listing) == 3:
         try:
             os.remove(PREVIOUS)
@@ -235,6 +251,7 @@ if __name__ == "__main__":
     flwontupdate = get_settings()['markerwontupdate']
     flupdate = get_settings()['markerupdate']
     flupdatestable = get_settings()['markerupdatestable']
+    flfrozen = get_settings()['markerfrozen']
 
     # our plugins directory
     f = open('{}/{}'.format(plugindir, '__init__.py'), 'w').close()
@@ -267,7 +284,8 @@ if __name__ == "__main__":
 
             # check start up state
             fail = initial_state(data, databases, e, 'latest', 'stable',
-                                 'previous', 'updating', 'update-stable')
+                                 'previous', 'updating', 'update-stable',
+                                 flfrozen)
             if fail:
                 raise Exception('Unclean inital state')
 
@@ -322,7 +340,7 @@ if __name__ == "__main__":
                 except:
                     pass
 
-                # finished downloading. mv directories, update symlink.
+                # finished downloading. mv directories, update symlinks
                 downloaded = os.path.join(UPDATING, fldownloaded)
                 if os.path.isfile(downloaded):
                     os.remove(downloaded)
@@ -336,13 +354,12 @@ if __name__ == "__main__":
                     ndir = os.readlink(UPDATING)
                     os.remove(UPDATING)
                     # are there other symlink pointing to LATEST?
-                    if ldir == sdir or ldir == pdir:
-                        os.remove(LATEST)
-                        os.symlink(ndir, LATEST)
-                    else:
-                        shutil.rmtree(ldir)
-                        os.remove(LATEST)
-                        os.symlink(ndir, LATEST)
+                    # also, do not delete directory if frozen
+                    isfrozen = os.path.isfile(os.path.join(ldir, flfrozen))
+                    if ldir != sdir and ldir != pdir and not isfrozen:
+                            shutil.rmtree(ldir)
+                    os.remove(LATEST)
+                    os.symlink(ndir, LATEST)
 
                 # update stable if there is not daily update running
                 cusdir = os.path.join(data, '{}-check_update_stable'.format(e))
@@ -355,13 +372,16 @@ if __name__ == "__main__":
                     sdir = os.readlink(STABLE)
                     pdir = os.readlink(PREVIOUS)
                     shutil.rmtree(cusdir)
-                    os.remove(PREVIOUS)
-                    os.symlink(sdir, PREVIOUS)
-                    # initial case, "previous" and "stable" are the same
-                    if not sdir == pdir:
-                        shutil.rmtree(pdir)
-                    os.remove(STABLE)
-                    os.symlink(ldir, STABLE)
+                    # only update stable when not up to date
+                    if sdir != ldir:
+                        os.remove(STABLE)
+                        os.symlink(ldir, STABLE)
+                        os.remove(PREVIOUS)
+                        os.symlink(sdir, PREVIOUS)
+                        # initial case, "previous" and "stable" are the same
+                        isfrozen = os.path.isfile(os.path.join(pdir, flfrozen))
+                        if sdir != pdir and not isfrozen:
+                            shutil.rmtree(pdir)
 
                 status[e] = dict(
                     status=dlstatus, person=person[e], email=email[e])
