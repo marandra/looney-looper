@@ -301,7 +301,7 @@ if __name__ == "__main__":
         scheduler.start()
 
         while True:
-            time.sleep(2)
+            time.sleep(10)
             fo = open('schedulerjobs.log', 'w')
             scheduler.print_jobs(out=fo)
             fo.close()
