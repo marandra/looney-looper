@@ -73,13 +73,9 @@ def update_status(statusdict, fname, fsched):
     timestr = time.strftime("%d %b %Y %H:%M:%S", time.localtime())
     line = []
     line.append('BC2 Data    {}\n'.format(timestr))
-    line.append('Live data directory: /import/bc2/data/databases\n\n')
-    line.append('{:<16s}{:<13s}{:<26s}{:<19}{:<60s}\n\n'.format(
-        'Target',
-        'Status',
-        'Next update',
-        'Responsable',
-        'Email'))
+    line.append('Live data directory: /import/bc2/data/test\n\n')
+    line.append('{:<16s}{:<13s}{:<27s}{:<s}\n\n'.format(
+        'Target', 'Status', 'Next update', 'Contact'))
     fo.write(''.join(line))
     # jobs
     firstline = True
@@ -95,8 +91,8 @@ def update_status(statusdict, fname, fsched):
             status = statusdict[dbname]['status']
         else:
             status = 'up_to_date'
-        line = '{:<16s}{:<13s}{:<26s}{:<19}{:<60s}\n'.format(
-            dbname, status, nextupdate, person, email)
+        line = '{:<16s}{:<13s}{:<27s}{:<s}\n'.format(
+            dbname, status, nextupdate, person + ' (' + email + ')')
         fo.write(line)
     fo.close()
     fs.close()
@@ -249,7 +245,8 @@ if __name__ == "__main__":
     flfrozen = get_settings()['markerfrozen']
 
     # our plugins directory
-    f = open('{}/{}'.format(plugindir, '__init__.py'), 'w').close()
+    f = open(os.path.join(plugindir, '__init__.py'), 'w').close()
+    sys.path.append(databases)
     import plugins
 
     try:
