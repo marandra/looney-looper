@@ -1,4 +1,5 @@
 import logging
+import os
 
 
 class Base(object):
@@ -6,7 +7,7 @@ class Base(object):
 
     def check_freq(self, second, minute, hour, day_of_week):
         self.second = second
-        self.minute = muinute
+        self.minute = minute
         self.hour = hour
         self.day_of_week = day_of_week
 
@@ -18,14 +19,17 @@ class Base(object):
         self.stable_day_of_week = day_of_week
 
 
-    def contact(self, person, email)
+    def contact(self, person, email):
         self.person = person
         self.email = email
 
 
-    def check_update_stable(PATH, LATEST, FLAG_UPDATE_STABLE):
+    def check_update_stable(self, PATH, FLAG_UPDATE_STABLE):
         logger = logging.getLogger(__name__)
-        os.makedirs(PATH)
+        try:
+            os.makedirs(PATH)
+        except:
+            pass
         flagpath = os.path.join(PATH, FLAG_UPDATE_STABLE)
         open(flagpath, 'w').close()
         logger.debug('Created STABLE {}'.format(flagpath))

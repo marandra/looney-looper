@@ -13,10 +13,10 @@ class Emboss(pluginbase.Base):
     def __init__(self):
         # frequency for checking if updates are available
         # sec, min, hours, day of week (in cron format)
-        self.check_freq(self, '0', '*/2', '*', '*')
-        self.check_freq_stable(self, '0', '0', '*/1', '*')
+        self.check_freq('0', '*/2', '*', '*')
+        self.check_freq_stable('0', '0', '*/1', '*')
         # contact: name, email
-        self.contact(self, 'Ross Mccants', 'ross.mccants@unibas.ch')
+        self.contact('Ross Mccants', 'ross.mccants@unibas.ch')
 
 
     def check_update(PATH, LATEST):
