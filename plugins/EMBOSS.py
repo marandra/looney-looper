@@ -2,9 +2,10 @@ import os
 import logging
 import ftplib
 import filecmp
+import subprocess
 
 second = '0'
-minute = '*/10'
+minute = '*/2'
 hour = '*'
 day_of_week = '*'
 stable_second = '0'
@@ -62,7 +63,7 @@ def run(PATH, FLAG_FINISHED):
 
     logger = logging.getLogger(__name__)
 
-    logger.debug('Downloading: 1/4')
+    logger.info('Downloading: 1/4')
     try:
         server = 'ftp.expasy.org'
         path = 'databases/uniprot/current_release/knowledgebase/complete/'
@@ -76,21 +77,7 @@ def run(PATH, FLAG_FINISHED):
     except Exception, e:
         logging.warn("Error downloading {}: {}".format(rfilename, e))
 
-    logger.debug('Downloading: 2/4')
-    try:
-        server = 'ftp.expasy.org'
-        path = 'databases/uniprot/current_release/knowledgebase/complete/'
-        rfilename = 'uniprot_trembl.dat.gz'
-        lfilename = os.path.join(PATH, rfilename)
-        ftp = ftplib.FTP(server)
-        ftp.login()
-        ftp.cwd(path)
-        ftp.retrbinary("RETR " + rfilename, open(lfilename, 'wb').write)
-        ftp.quit()
-    except Exception, e:
-        logging.warn("Error downloading {}: {}".format(rfilename, e))
-
-    logger.debug('Downloading: 3/4')
+    logger.info('Downloading: 2/4')
     try:
         server = 'ftp.expasy.org'
         path = 'databases/uniprot/current_release/knowledgebase/complete/'
@@ -104,8 +91,75 @@ def run(PATH, FLAG_FINISHED):
     except Exception, e:
         logging.warn("Error downloading {}: {}".format(rfilename, e))
 
-    logger.debug('Expanding: 4/4')
-    # dbxflat -auto -dbresource=swiss -idformat=SWISS -fields=id,acc -dbname=UniProt -directory=/import/bc2/home/smng-prodA/nobackup/pending/ -filenames='*.dat
+    # logger.info('Downloading: 3/4')
+    # try:
+    #     server = 'ftp.expasy.org'
+    #     path = 'databases/uniprot/current_release/knowledgebase/complete/'
+    #     rfilename = 'uniprot_trembl.dat.gz'
+    #     lfilename = os.path.join(PATH, rfilename)
+    #     ftp = ftplib.FTP(server)
+    #     ftp.login()
+    #     ftp.cwd(path)
+    #     ftp.retrbinary("RETR " + rfilename, open(lfilename, 'wb').write)
+    #     ftp.quit()
+    # except Exception, e:
+    #     logging.warn("Error downloading {}: {}".format(rfilename, e))
+
+    logger.info('Expanding: 4/4')
+    ifilename = os.path.join(PATH, 'uniprot_sprot.dat.gz')
+    ofilename = os.path.join(PATH, 'uniprot_sprot.dat')
+    fofilename = open(ofilename, 'w')
+    subprocess.call(['gzip', '-d', '-c', ifilename], stdout=fofilename)
+    fofilename.close()
+    os.remove(ifilename)
+    #filename = 'uniprot_trembl.dat.gz'
+    #subprocess.call(['gzip', '-d', filename])
+    uniprotdir = os.path.join(PATH, 'UniProt')
+    try:
+        os.makedirs(uniprotdir)
+    except OSError:
+        raise
+    env = dict(os.environ)
+    env.update({'HOME':PATH})
+    with open(os.path.join(PATH, '.embossrc'), 'w') as fconfig:
+        config ='''set dpath       {}
+set ipath       {}
+
+SET PAGESIZE 4096
+SET CACHESIZE 400
+RES swiss [
+   type: Index
+   idlen:  20
+   acclen: 15
+]
+DB uniprot [
+         type:          P
+         dbalias:       UniProt
+         method:        emboss
+         release:       "0.0"
+         format:        swiss
+         dir:           $dpath/UniProt
+         indexdir:      $ipath/UniProt
+         comment:       "UniProt (Swiss-Prot & TrEMBL), all sequences"
+]
+
+DB up [
+         type:          P
+         dbalias:       UniProt
+         method:        emboss
+         release:       "0.0"
+         format:        swiss
+         dir:           $dpath
+         indexdir:      $ipath
+         comment:       "UniProt (Swiss-Prot & TrEMBL), all sequences"
+]
+'''.format(PATH, PATH)
+        fconfig.write(config) 
+    command = "dbxflat -auto -dbresource=swiss -idformat=SWISS -fields=id,acc\
+        -dbname=UniProt -directory={} -indexoutdir={}\
+        -filenames=*.dat".format(PATH, uniprotdir)
+    p = subprocess.call(command.split(), env=env)
+    os.remove(os.path.join(PATH, '.embossrc'))
 
     # write flag indicating download finished
     open(os.path.join(PATH, FLAG_FINISHED), 'w').close()

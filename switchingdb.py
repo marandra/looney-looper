@@ -75,7 +75,7 @@ def update_status(statusdict, fname, fsched):
     line.append('BC2 Data    {}\n'.format(timestr))
     line.append('Live data directory: /import/bc2/data/test\n\n')
     line.append('{:<16s}{:<13s}{:<27s}{:<s}\n\n'.format(
-        'Target', 'Status', 'Next update', 'Contact'))
+        'Target', 'Status', 'Next check', 'Contact'))
     fo.write(''.join(line))
     # jobs
     firstline = True
