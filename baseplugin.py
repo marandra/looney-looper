@@ -50,9 +50,9 @@ class Base(object):
         return
 
     def check_update(self):
-        raise ('NotImplemented. The method needs to be implemented in subclasses')
+        raise Exception('NotImplemented. The method needs to be implemented in subclasses')
 
     def run(self):
-        raise ('NotImplemented. The method needs to be implemented in subclasses')
+        raise Exception('NotImplemented. The method needs to be implemented in subclasses')
 
 

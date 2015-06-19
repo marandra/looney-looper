@@ -7,35 +7,24 @@ import time
 import sys
 import os
 import shutil
-import importlib
 import glob
 import threading
-
-
-def update_plugin_list(pluginsdir):
-    fi = open(os.path.join(pluginsdir, '__init__.py'), 'w')
-    modules = glob.glob(os.path.join(pluginsdir, '*.py'))
-    all = [os.path.basename(f)[:-3] for f in modules]
-    all.remove('__init__')
-    fi.write('__all__ = {}'.format(all))
-    fi.close
-    reload(plugins)
-    return all
+import imp
 
 
 def get_settings():
     configparser = ConfigParser.SafeConfigParser(os.environ)
     configparser.read("./settings.ini")
     settings = {
-                'plugindir': "",
-                'databases': "",
-                'data': "",
-                'markerupdated': "FINISHED_DOWNLOAD",
-                'markerwontupdate': "WILL_NOT_UPDATE",
-                'markerupdate': "UPDATEME",
-                'markerupdatestable': "UPDATEME_STABLE",
-                'markerfrozen': "FROZEN_VERSION",
-                'log_file': "default.log",
+        'plugindir': "",
+        'databases': "",
+        'data': "",
+        'markerupdated': "FINISHED_DOWNLOAD",
+        'markerwontupdate': "WILL_NOT_UPDATE",
+        'markerupdate': "UPDATEME",
+        'markerupdatestable': "UPDATEME_STABLE",
+        'markerfrozen': "FROZEN_VERSION",
+        'log_file': "default.log",
     }
     try:
         settings['plugindir'] = configparser.get('server', 'plugin_repo_path')
@@ -48,7 +37,7 @@ def get_settings():
 
 
 def update_latest(run, data, databases, dbname, latest, stable, previous,
-                  timestr, fldownloaded, flwontupdate):
+    timestr, fldownloaded, flwontupdate):
     '''
     create new directory and pass it to download function in a new thread
     '''
@@ -225,6 +214,7 @@ def initial_state(data, databases, e, latest, stable, previous,
 
     return False
 
+
 #######################################################################
 # main
 if __name__ == "__main__":
@@ -244,42 +234,29 @@ if __name__ == "__main__":
     flupdatestable = get_settings()['markerupdatestable']
     flfrozen = get_settings()['markerfrozen']
 
-    # our plugins directory
-    f = open(os.path.join(plugindir, '__init__.py'), 'w').close()
-    sys.path.append(databases)
-    import plugins
+    #sys.path.append(databases)
 
     try:
         # inital run. registration of plugins
         logger.info('Started')
-        plugins = update_plugin_list(plugindir)
+        plugins = map(os.path.basename, glob.glob(os.path.join(plugindir, '*.py')))
+        plugins = [p[:-3] for p in plugins]
+       
         runscr = {}
         person = {}
         email = {}
         flagdownloaded = []
         for i, e in enumerate(plugins):
-            logger.debug('Loading plugins: {}'.format(e))
-            module = importlib.import_module('plugins.{}'.format(e))
+            logger.info('Loading plugins: {}'.format(e))
+            module = imp.load_source(e, os.path.join(plugindir, e + '.py'))
             instance = module.create()
-
-            update_daily = instance.check_update_daily
-            update_stable = instance.check_update_stable
             runscr[e] = instance.run
-            second = instance.second
-            minute = instance.minute
-            hour = instance.hour
-            doweek = instance.day_of_week
-            stable_second = instance.stable_second
-            stable_minute = instance.stable_minute
-            stable_hour = instance.stable_hour
-            stable_doweek = instance.stable_day_of_week
             person[e] = instance.person
             email[e] = instance.email
 
             # check start up state
             fail = initial_state(data, databases, e, 'latest', 'stable',
-                                 'previous', 'updating', 'update-stable',
-                                 flfrozen)
+                 'previous', 'updating', 'update-stable', flfrozen)
             if fail:
                 raise Exception('Unclean inital state')
 
@@ -288,14 +265,15 @@ if __name__ == "__main__":
             cudir = os.path.join(data, '{}-check_update'.format(e))
             arguments = [cudir, LATEST, flupdate, flwontupdate]
             scheduler.add_job(
-                update_daily, 'cron', args=arguments, name=e,
-                day_of_week=doweek, hour=hour, minute=minute, second=second)
+                instance.check_update_daily, 'cron', args=arguments, name=e,
+                day_of_week=instance.day_of_week, hour=instance.hour,
+                minute=instance.minute, second=instance.second)
             cusdir = os.path.join(data, '{}-check_update_stable'.format(e))
             arguments = [cusdir, flupdatestable]
             scheduler.add_job(
-                update_stable, 'cron', args=arguments,
-                name='{}-stable'.format(e), day_of_week=stable_doweek,
-                hour=stable_hour, minute=stable_minute, second=stable_second)
+                instance.check_update_stable, 'cron', args=arguments, name='{}-stable'.format(e),
+                day_of_week=instance.stable_day_of_week, hour=instance.stable_hour,
+                minute=instance.stable_minute, second=instance.stable_second)
 
         scheduler.start()
 

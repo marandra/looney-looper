@@ -9,7 +9,7 @@ def create():
     return EMBOSS()
 
 
-class EMBOSS(pluginbase.Base):
+class EMBOSS(baseplugin.Base):
     def __init__(self):
         # frequency for checking if updates are available
         # sec, min, hours, day of week (in cron format)
@@ -58,7 +58,7 @@ class EMBOSS(pluginbase.Base):
             return True
 
 
-    def run(PATH, FLAG_FINISHED):
+    def run(self, PATH, FLAG_FINISHED):
         '''
         Script to download and expand database in the PATH directory.
         It must write FLAG_FINISHED to indicate that download finished
