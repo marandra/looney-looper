@@ -1,4 +1,4 @@
-import pluginbase
+import baseplugin
 import os
 import logging
 import ftplib
@@ -6,10 +6,10 @@ import filecmp
 import subprocess
 
 def create():
-    return Emboss()
+    return EMBOSS()
 
 
-class Emboss(pluginbase.Base):
+class EMBOSS(pluginbase.Base):
     def __init__(self):
         # frequency for checking if updates are available
         # sec, min, hours, day of week (in cron format)
@@ -19,7 +19,7 @@ class Emboss(pluginbase.Base):
         self.contact('Ross Mccants', 'ross.mccants@unibas.ch')
 
 
-    def check_update(PATH, LATEST):
+    def check_update(self, PATH, LATEST):
         '''
         Make the necessary checks to decide if an update is needed.
         PATH points to a temporary working directory.

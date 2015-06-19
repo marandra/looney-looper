@@ -36,10 +36,10 @@ class Base(object):
         return
     
     
-    def check_update_daily(PATH, LATEST, FLAG_UPDATE, FLAG_WONT_UPDATE):
+    def check_update_daily(self, PATH, LATEST, FLAG_UPDATE, FLAG_WONT_UPDATE):
         logger = logging.getLogger(__name__)
         os.makedirs(PATH)
-        UPDATE = check_update(PATH, LATEST)
+        UPDATE = self.check_update(PATH, LATEST)
         if UPDATE:
             flagpath = os.path.join(PATH, FLAG_UPDATE)
         else:

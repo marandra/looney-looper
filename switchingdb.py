@@ -260,19 +260,21 @@ if __name__ == "__main__":
         for i, e in enumerate(plugins):
             logger.debug('Loading plugins: {}'.format(e))
             module = importlib.import_module('plugins.{}'.format(e))
-            update_daily = getattr(module, 'check_update_daily')
-            update_stable = getattr(module, 'check_update_stable')
-            runscr[e] = getattr(module, 'run')
-            second = getattr(module, 'second')
-            minute = getattr(module, 'minute')
-            hour = getattr(module, 'hour')
-            doweek = getattr(module, 'day_of_week')
-            stable_second = getattr(module, 'stable_second')
-            stable_minute = getattr(module, 'stable_minute')
-            stable_hour = getattr(module, 'stable_hour')
-            stable_doweek = getattr(module, 'stable_day_of_week')
-            person[e] = getattr(module, 'person')
-            email[e] = getattr(module, 'email')
+            instance = module.create()
+
+            update_daily = instance.check_update_daily
+            update_stable = instance.check_update_stable
+            runscr[e] = instance.run
+            second = instance.second
+            minute = instance.minute
+            hour = instance.hour
+            doweek = instance.day_of_week
+            stable_second = instance.stable_second
+            stable_minute = instance.stable_minute
+            stable_hour = instance.stable_hour
+            stable_doweek = instance.stable_day_of_week
+            person[e] = instance.person
+            email[e] = instance.email
 
             # check start up state
             fail = initial_state(data, databases, e, 'latest', 'stable',
@@ -289,7 +291,7 @@ if __name__ == "__main__":
                 update_daily, 'cron', args=arguments, name=e,
                 day_of_week=doweek, hour=hour, minute=minute, second=second)
             cusdir = os.path.join(data, '{}-check_update_stable'.format(e))
-            arguments = [cusdir, LATEST, flupdatestable]
+            arguments = [cusdir, flupdatestable]
             scheduler.add_job(
                 update_stable, 'cron', args=arguments,
                 name='{}-stable'.format(e), day_of_week=stable_doweek,
