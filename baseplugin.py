@@ -4,6 +4,12 @@ import os
 
 class Base(object):
 
+    def __init__(self):
+        self.name = ''
+        self.method = ''
+        self.contact = '' 
+        self.email = ''
+
 
     def check_freq(self, second, minute, hour, day_of_week):
         self.second = second
@@ -17,11 +23,6 @@ class Base(object):
         self.stable_minute = minute
         self.stable_hour = hour
         self.stable_day_of_week = day_of_week
-
-
-    def contact(self, person, email):
-        self.person = person
-        self.email = email
 
 
     def check_update_stable(self, PATH, FLAG_UPDATE_STABLE):

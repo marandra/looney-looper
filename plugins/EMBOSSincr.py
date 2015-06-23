@@ -4,27 +4,25 @@ import logging
 import ftplib
 import filecmp
 import subprocess
+import time
 
 def create():
-    return EMBOSS()
+    return EMBOSSincr()
 
 
-class EMBOSS(baseplugin.Base):
+class EMBOSSincr(baseplugin.Base):
     def __init__(self):
-        # name for the database (TODO get it from file or class name)
-        #self.name = 'EMBOSS'
-
         # update method: scratch or incremental (ie, starting from last version)
-        self.method = 'scratch'
+        self.method = 'incremental'
 
         # frequency for checking if updates are available
         # sec, min, hours, day of week (in cron format)
-        self.check_freq('0', '*/2', '*', '*')
-        self.check_freq_stable('0', '0', '*/1', '*')
+        self.check_freq('0', '*/1', '*', '*')
+        self.check_freq_stable('0', '*/2', '*', '*')
 
         # contact name, email
-        self.contact = 'Ross Mccants'
-        self.email =  'ross.mccants@unibas.ch'
+        self.contact = 'Juan Perez'
+        self.email =  'juan.perez@unibas.ch'
 
 
     def check_update(self, PATH, LATEST):
@@ -36,7 +34,11 @@ class EMBOSS(baseplugin.Base):
         '''
     
         logger = logging.getLogger(__name__)
-    
+   
+        # DEBUG
+        return True
+
+ 
         try:
             server = 'ftp.expasy.org'
             path = 'databases/uniprot/current_release/knowledgebase/complete/'
@@ -79,7 +81,7 @@ class EMBOSS(baseplugin.Base):
             server = 'ftp.expasy.org'
             path = 'databases/uniprot/current_release/knowledgebase/complete/'
             rfilename = 'reldate.txt'
-            lfilename = os.path.join(PATH, rfilename)
+            lfilename = os.path.join(PATH, '{}-{}'.format(rfilename, time.time()))
             ftp = ftplib.FTP(server)
             ftp.login()
             ftp.cwd(path)
