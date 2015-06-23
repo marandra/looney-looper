@@ -11,8 +11,8 @@ def create():
 
 class EMBOSS(baseplugin.Base):
     def __init__(self):
-        # name for the database (TODO get it from file or class name)
-        #self.name = 'EMBOSS'
+        # append dependencies, ie databases that must be updated beforehand
+        self.dependencies = ['EMBOSSincr']
 
         # update method: scratch or incremental (ie, starting from last version)
         self.method = 'scratch'

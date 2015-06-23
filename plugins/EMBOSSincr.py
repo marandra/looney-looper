@@ -15,9 +15,13 @@ class EMBOSSincr(baseplugin.Base):
         # update method: scratch or incremental (ie, starting from last version)
         self.method = 'incremental'
 
+        # append dependencies, ie databases that must be updated beforehand
+        # self.dependencies = ''
+
+
         # frequency for checking if updates are available
         # sec, min, hours, day of week (in cron format)
-        self.check_freq('0', '*/1', '*', '*')
+        self.check_freq('0', '*/10', '*', '*')
         self.check_freq_stable('0', '*/2', '*', '*')
 
         # contact name, email

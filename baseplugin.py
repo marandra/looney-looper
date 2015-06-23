@@ -6,10 +6,10 @@ class Base(object):
 
     def __init__(self):
         self.name = ''
-        self.method = ''
+        self.method = 'scratch'
         self.contact = '' 
         self.email = ''
-
+        self.dependencies = []
 
     def check_freq(self, second, minute, hour, day_of_week):
         self.second = second

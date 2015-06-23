@@ -1,4 +1,4 @@
 [server]
 plugin_repo_path=/import/bc2/data/test/plugins
 db_link_path=/import/bc2/data/test
-db_data_path=/import/bc2/data/test/data
+db_data_path=/import/bc2/data/test/store

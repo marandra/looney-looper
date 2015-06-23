@@ -36,25 +36,41 @@ def get_settings():
     return settings
 
 
-def update_latest(run, data, databases, dbname, latest, stable, previous,
-    timestr, fldownloaded, method='scratch'):
+def update_latest(plugin, settings):
     '''
     create new directory and pass it to download function in a new thread
     '''
+    run  = plugin.run
+    dbname = plugin.name
+    method = plugin.method
+
+    data = settings['data']
+    databases = settings['databases']
+    fldownloaded = settings['markerupdated']
+
+    latest = 'latest'
+    stable = 'stable'
+    previous = 'previous'
+
+    timestr = time.strftime("%y%m%d-%H:%M:%S", time.localtime())
+
+    # here run the dependencies, calling recursively to update_latest. 
+    # we need to change the current call to the function for this
 
     ldir = os.readlink(os.path.join(databases, dbname, latest))
     ndir = os.path.join(data, '{}-{}'.format(dbname, timestr))
+
     # copytree vs mkdir: depending on the strategy, it may be more
     # efficient to start the update from the last version of the database.
     # For our actual cases is better to start with a clean directory.
     if method == 'incremental':
-        print "DEBUG INCREMENTAL ----------------------------"
         shutil.copytree(ldir, ndir)
     else:
         os.mkdir(ndir)
     run_thread = threading.Thread(target=run,
                                   args=[ndir, fldownloaded])
     run_thread.start()
+
     return ndir
 
 
@@ -66,7 +82,7 @@ def update_status(statusdict, fname, fsched):
     line = []
     line.append('BC2 Data    {}\n'.format(timestr))
     line.append('Live data directory: /import/bc2/data/test\n\n')
-    line.append('{:<16s}{:<13s}{:<27s}{:<s}\n\n'.format(
+    line.append('{:<21s}{:<13s}{:<27s}{:<s}\n\n'.format(
         'Target', 'Status', 'Next check', 'Contact'))
     fo.write(''.join(line))
     # jobs
@@ -83,7 +99,7 @@ def update_status(statusdict, fname, fsched):
             status = statusdict[dbname]['status']
         else:
             status = 'up_to_date'
-        line = '{:<16s}{:<13s}{:<27s}{:<s}\n'.format(
+        line = '{:<21s}{:<13s}{:<27s}{:<s}\n'.format(
             dbname, status, nextupdate, contact + ' (' + email + ')')
         fo.write(line)
     fo.close()
@@ -203,6 +219,8 @@ def initial_state(data, databases, e, latest, stable, previous,
             os.remove(PREVIOUS)
         except:
             pass
+        print "DEBUG"
+        print listing[0], PREVIOUS
         os.symlink(listing[0], PREVIOUS)
         try:
             os.remove(STABLE)
@@ -298,10 +316,7 @@ if __name__ == "__main__":
                 # there is a db to update
                 updateme = os.path.join(cudir, flupdate)
                 if os.path.isfile(updateme) and not os.path.exists(UPDATING):
-                    tstamp = time.strftime("%y%m%d-%H:%M:%S", time.localtime())
-                    ndir = update_latest(
-                        p.run, data, databases, p.name, 'latest', 'stable',
-                        'previous', tstamp, fldownloaded, method=p.method)
+                    ndir = update_latest(p, get_settings())
                     os.symlink(ndir, UPDATING)
                     dlstatus = 'updating'
                 try:
