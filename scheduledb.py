@@ -10,6 +10,7 @@ import shutil
 import glob
 import threading
 import imp
+import errno
 
 
 def get_settings():
@@ -108,7 +109,7 @@ def update_status(statusdict, fname, fsched):
 
 
 def initial_state(data, databases, e, latest, stable, previous,
-                  updating, update_stable, flfrozen):
+    updating, update_stable, flfrozen):
     '''
     Checks that there is a clean and consistent initial state.
     Function returns 'True' when a test fails.
@@ -118,6 +119,23 @@ def initial_state(data, databases, e, latest, stable, previous,
       Test 3: No more that 3 not frozen directories
     After passing the test, it assigns the links to the present directories
     '''
+
+
+    def makedirs_existsok(path):
+        try:
+            os.makedirs(path)
+        except:
+            if not os.path.isdir(path):
+                raise
+
+
+    def remove_nexistok(filename):
+        try:
+            os.remove(filename)
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
+
 
     # Test 1: No *-updating directories
     xdir = os.path.join(data, '{}-{}'.format(e, updating))
@@ -129,7 +147,7 @@ def initial_state(data, databases, e, latest, stable, previous,
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         return True
-    # Test 3: No more that 3 not frozen directories
+    # Test 3: No more that 3 not-frozen directories
     pathdirs = os.path.join(data, '{}-*'.format(e))
     alldirs = glob.glob(pathdirs)
     frozenpath = os.path.join(data, '{}-*'.format(e), flfrozen)
@@ -139,99 +157,59 @@ def initial_state(data, databases, e, latest, stable, previous,
     if len(listing) > 3:
         logger.error("More than 3 not frozen versions: {}".format(pathdirs))
         return True
+
+
     # Assign links to directories
     listing.sort()
+    makedirs_existsok(os.path.join(databases, e))
     LATEST = os.path.join(databases, e, latest)
     STABLE = os.path.join(databases, e, stable)
     PREVIOUS = os.path.join(databases, e, previous)
     # no directories, create initial structure
     if len(listing) == 0:
         ndir = os.path.join(data, '{}-initial'.format(e))
-        # what happens if there an 'initial' dir already?
-        os.makedirs(ndir)
-        try:
-            os.remove(LATEST)
-        # here catch only (existing dir) exception
-        except:
-            pass
-        try:
-            os.makedirs(os.path.join(databases, e))
-        # here catch only (existing dir) exception
-        except:
-            pass
+        makedirs_existsok(ndir)
+        remove_nexistok(LATEST)
         os.symlink(ndir, LATEST)
-        try:
-            os.remove(STABLE)
-        except:
-            pass
+        remove_nexistok(STABLE)
         os.symlink(ndir, STABLE)
-        try:
-            os.remove(PREVIOUS)
-        except:
-            pass
+        remove_nexistok(PREVIOUS)
         os.symlink(ndir, PREVIOUS)
     if len(listing) == 1:
-        try:
-            os.makedirs(os.path.join(databases, e))
-        # here catch only (existing dir) exception
-        except:
-            pass
-        try:
-            os.remove(LATEST)
-        except:
-            pass
+        remove_nexistok(LATEST)
         os.symlink(listing[0], LATEST)
-        try:
-            os.remove(STABLE)
-        except:
-            pass
+        remove_nexistok(STABLE)
         os.symlink(listing[0], STABLE)
-        try:
-            os.remove(PREVIOUS)
-        except:
-            pass
+        remove_nexistok(PREVIOUS)
         os.symlink(listing[0], PREVIOUS)
     if len(listing) == 2:
         # oldest goes to "previous"
         ndir = listing[0]
-        try:
-            os.remove(PREVIOUS)
-        except:
-            pass
+        remove_nexistok(PREVIOUS)
         os.symlink(ndir, PREVIOUS)
         # newest goes to "latest"
         ndir = listing[1]
-        try:
-            os.remove(LATEST)
-        except:
-            pass
+        remove_nexistok(LATEST)
         os.symlink(ndir, LATEST)
         # "stable" points to anyone, if not, assign it to newest
         try:
             sdir = os.readlink(STABLE)
             if not sdir == listing[0] and not sdir == listing[1]:
-                os.remove(STABLE)
+                remove_nexistok(STABLE)
                 os.symlink(ndir, STABLE)
-        except:
-            os.symlink(ndir, STABLE)
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
+            else:
+                os.symlink(ndir, STABLE)
     if len(listing) == 3:
-        try:
-            os.remove(PREVIOUS)
-        except:
-            pass
-        print "DEBUG"
-        print listing[0], PREVIOUS
+        remove_nexistok(PREVIOUS)
         os.symlink(listing[0], PREVIOUS)
-        try:
-            os.remove(STABLE)
-        except:
-            pass
+        remove_nexistok(STABLE)
         os.symlink(listing[1], STABLE)
-        try:
-            os.remove(LATEST)
-        except:
-            pass
+        remove_nexistok(LATEST)
         os.symlink(listing[2], LATEST)
+
 
     return False
 
