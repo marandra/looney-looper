@@ -2,14 +2,19 @@ import logging
 import os
 
 
-class Base(object):
+# class Base(object):
+class Base:
 
     def __init__(self):
         self.method = 'scratch'
-        self.contact = '' 
+        self.contact = ''
         self.email = ''
-        self.dependencies = []
+        self.dep = {}
         self.logger = logging.getLogger(__name__)
+
+        self.LATEST = ''
+        self.STABLE = ''
+        self.PREVIOUS = ''
 
     def check_freq(self, second, minute, hour, day_of_week):
         self.second = second
@@ -17,13 +22,11 @@ class Base(object):
         self.hour = hour
         self.day_of_week = day_of_week
 
-
     def check_freq_stable(self, second, minute, hour, day_of_week):
         self.stable_second = second
         self.stable_minute = minute
         self.stable_hour = hour
         self.stable_day_of_week = day_of_week
-
 
     def check_update_stable(self, PATH, FLAG_UPDATE_STABLE):
         try:
@@ -39,8 +42,7 @@ class Base(object):
         open(flagpath, 'w').close()
         self.logger.debug('Created STABLE {}'.format(flagpath))
         return
-    
-    
+
     def check_update_daily(self, PATH, LATEST, FLAG_UPDATE, FLAG_WONT_UPDATE):
         try:
             os.makedirs(PATH)
@@ -50,7 +52,7 @@ class Base(object):
             else:
                 os.remove(PATH)
                 os.makedirs(PATH)
-            
+
         UPDATE = self.check_update(PATH, LATEST)
         if UPDATE:
             flagpath = os.path.join(PATH, FLAG_UPDATE)
@@ -61,10 +63,10 @@ class Base(object):
         self.logger.debug('Created DAILY {}'.format(flagpath))
         return
 
-    def check_update(self):
-        raise Exception('NotImplemented. The method needs to be implemented in subclasses')
+    def check_update(self, a, b):
+        raise Exception('NotImplemented. \
+The method needs to be implemented in subclasses')
 
-    def run(self):
-        raise Exception('NotImplemented. The method needs to be implemented in subclasses')
-
-
+    def run(self, a, b):
+        raise Exception('NotImplemented. \
+The method needs to be implemented in subclasses')

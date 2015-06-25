@@ -11,8 +11,7 @@ def create():
 
 class Plugin(baseplugin.Base):
     def __init__(self):
-        # append dependencies, ie databases that must be updated beforehand
-        #self.dependencies = ['EMBOSSincr']
+        baseplugin.Base.__init__(self)
 
         # update method: scratch or incremental (ie, starting from last version)
         self.method = 'scratch'

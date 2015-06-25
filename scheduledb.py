@@ -29,7 +29,11 @@ def get_settings():
         'log_file': "default.log",
         'latest': "latest",
         'stable': "stable",
-        'previous': "previous"
+        'previous': "previous",
+        'sgn_check': "check_update",
+        'sgn_checkstable': "check_update_stable",
+        'sgn_updating': "updating",
+        'sgn_updatingstable': "updating_stable",
     }
     try:
         settings['plugindir'] = configparser.get('server', 'plugin_repo_path')
@@ -52,9 +56,12 @@ def update_latest(name, plugins, settings):
         return ts
     
     
-    def valid_timedate(filename, days):
-        ''' False if filename is older than 'days' days '''
-        ft = datetime.datetime.strptime(filename.split('-')[-1], '%y%m%dT%H:%M:%S')
+    def valid_timedate(plugin, days):
+        ''' False if filename is older than 'days' days, or "initial" '''
+        filename = plugin.LATEST.split('-')[-1]
+        if filename == 'initial' or filename == '':
+            return False
+        ft = datetime.datetime.strptime(filename, '%y%m%dT%H:%M:%S')
         dt = datetime.date.today() - datetime.timedelta(days=days)
         return ft > dt
     
@@ -70,15 +77,16 @@ def update_latest(name, plugins, settings):
     stable = settings['stable']
     previous = settings['previous']
 
-    # here run the dependencies, calling recursively to update_latest. 
-    # we need to change the current call to the function for this
+    # dependencies
+    for pname, days in plugins[name].dep.items():
+        if valid_timedate(plugins[pname], days):
+           continue
+        print "DEBUG UDATING DEP "
+        
 
     ldir = os.readlink(os.path.join(databases, dbname, latest))
     ndir = os.path.join(data, dbname + timestamp())
 
-    # copytree vs mkdir: depending on the strategy, it may be more
-    # efficient to start the update from the last version of the database.
-    # For our actual cases is better to start with a clean directory.
     if method == 'incremental':
         shutil.copytree(ldir, ndir)
     else:
@@ -123,15 +131,13 @@ def update_status(statusdict, fname, fsched):
     return
 
 
-def initial_state(data, databases, e, latest, stable, previous,
-    updating, update_stable, flfrozen):
+def initial_state(data, databases, e, settings):
     '''
     Checks that there is a clean and consistent initial state.
     Function returns 'True' when a test fails.
     Tests: 
-      Test 1: No *-updating directories
-      Test 2: No *-update-stable directories
-      Test 3: No more that 3 not frozen directories
+      Test 1: No temp (*-updating, update stable, check_update, ...)  directories
+      Test 2: No more that 3 not frozen directories
     After passing the test, it assigns the links to the present directories
     '''
 
@@ -151,18 +157,31 @@ def initial_state(data, databases, e, latest, stable, previous,
             if e.errno != errno.ENOENT:
                 raise
 
+    latest = settings['latest']
+    stable = settings['stable']
+    previous = settings['previous']
+    flfrozen = settings['markerfrozen']
+    flcheck = settings['sgn_check']
+    flupdating = settings['sgn_updating']
+    flupdatingstable = settings['sgn_updatingstable']
+
 
     # Test 1: No *-updating directories
-    xdir = os.path.join(data, '{}-{}'.format(e, updating))
+    xdir = os.path.join(data, '{}-{}'.format(e, flupdating))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         return True
-    # Test 2: No *-update-stable directories
-    xdir = os.path.join(data, '{}-{}'.format(e, update_stable))
+    xdir = os.path.join(data, '{}-{}'.format(e, flupdatingstable))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         return True
-    # Test 3: No more that 3 not-frozen directories
+    xdir = os.path.join(data, '{}-{}'.format(e, flcheck))
+    if os.path.exists(xdir):
+        logger.error("{} exists".format(xdir))
+        return True
+
+
+    # Test 2: No more that 3 not-frozen directories
     pathdirs = os.path.join(data, '{}-*'.format(e))
     alldirs = glob.glob(pathdirs)
     frozenpath = os.path.join(data, '{}-*'.format(e), flfrozen)
@@ -246,11 +265,9 @@ def regist_plugins(plugindir, settings):
         instance[e] = module.create()
         #instance[e].__name__ = os.path.splitext(os.path.basename(module.__file__))[0]
         instance[e].__name__ = e
-        print "DEBUG PLUGIN -------- " + instance[e].__name__
 
         # check start up state
-        fail = initial_state(data, databases, e, latest, stable,
-             previous, 'updating', 'update-stable', flfrozen)
+        fail = initial_state(data, databases, e, settings)
         if fail:
             raise Exception('Unclean inital state')
 
@@ -290,6 +307,12 @@ if __name__ == "__main__":
     flupdate = get_settings()['markerupdate']
     flupdatestable = get_settings()['markerupdatestable']
     flfrozen = get_settings()['markerfrozen']
+    sgn_check = get_settings()['sgn_check']
+    sgn_checkstable = get_settings()['sgn_checkstable']
+    sgn_updating = get_settings()['sgn_updating']
+    latest = get_settings()['latest']
+    stable = get_settings()['stable']
+    previous = get_settings()['previous']
 
     try:
         # initialization. registration of plugins
@@ -307,8 +330,8 @@ if __name__ == "__main__":
             for name, p in plugins.items():
 
                 dlstatus = 'up_to_date'
-                cudir = os.path.join(data, '{}-check_update'.format(p.__name__))
-                UPDATING = os.path.join(data, '{}-updating'.format(p.__name__))
+                cudir = os.path.join(data, '{}-{}'.format(p.__name__, sgn_check))
+                UPDATING = os.path.join(data, '{}-{}'.format(p.__name__, sgn_updating))
 
                 # there is a db to update
                 updateme = os.path.join(cudir, flupdate)
@@ -338,9 +361,9 @@ if __name__ == "__main__":
                 if os.path.isfile(downloaded):
                     os.remove(downloaded)
                     # update paths and directories
-                    LATEST = os.path.join(databases, p.__name__, 'latest')
-                    STABLE = os.path.join(databases, p.__name__, 'stable')
-                    PREVIOUS = os.path.join(databases, p.__name__, 'previous')
+                    LATEST = os.path.join(databases, p.__name__, latest)
+                    STABLE = os.path.join(databases, p.__name__, stable)
+                    PREVIOUS = os.path.join(databases, p.__name__, previous)
                     ldir = os.readlink(LATEST)
                     sdir = os.readlink(STABLE)
                     pdir = os.readlink(PREVIOUS)
@@ -353,14 +376,18 @@ if __name__ == "__main__":
                             shutil.rmtree(ldir)
                     os.remove(LATEST)
                     os.symlink(ndir, LATEST)
+                    # update links in instance
+                    p.LATEST = ldir
+                    p.STABLE = sdir
+                    p.PREVIOUS = pdir
 
                 # update stable if there is not daily update running
-                cusdir = os.path.join(data, '{}-check_update_stable'.format(p.__name__))
+                cusdir = os.path.join(data, '{}-{}'.format(p.__name__, sgn_checkstable))
                 if os.path.exists(cusdir) and not os.path.exists(UPDATING):
                     # update paths and directories
-                    LATEST = os.path.join(databases, p.__name__, 'latest')
-                    STABLE = os.path.join(databases, p.__name__, 'stable')
-                    PREVIOUS = os.path.join(databases, p.__name__, 'previous')
+                    LATEST = os.path.join(databases, p.__name__, latest)
+                    STABLE = os.path.join(databases, p.__name__, stable)
+                    PREVIOUS = os.path.join(databases, p.__name__, previous)
                     ldir = os.readlink(LATEST)
                     sdir = os.readlink(STABLE)
                     pdir = os.readlink(PREVIOUS)
@@ -375,6 +402,11 @@ if __name__ == "__main__":
                         isfrozen = os.path.isfile(os.path.join(pdir, flfrozen))
                         if sdir != pdir and not isfrozen:
                             shutil.rmtree(pdir)
+                
+                    # update links in instance
+                    p.LATEST = ldir
+                    p.STABLE = sdir
+                    p.PREVIOUS = pdir
 
                 status[p.__name__] = dict(
                     status=dlstatus, contact=p.contact, email=p.email)
