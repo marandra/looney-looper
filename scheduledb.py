@@ -18,9 +18,6 @@ def get_settings():
     configparser = ConfigParser.SafeConfigParser(os.environ)
     configparser.read("./settings.ini")
     settings = {
-        'plugindir': "",
-        'databases': "",
-        'data': "",
         'markerupdated': "FINISHED_DOWNLOAD",
         'markerwontupdate': "WILL_NOT_UPDATE",
         'markerupdate': "UPDATEME",
@@ -36,66 +33,66 @@ def get_settings():
         'sgn_updatingstable': "updating_stable",
     }
     try:
-        settings['plugindir'] = configparser.get('server', 'plugin_repo_path')
-        settings['databases'] = configparser.get('server', 'db_link_path')
-        settings['data'] = configparser.get('server', 'db_data_path')
+        settings['plugindir'] = configparser.get('server', 'plugins_path')
+        settings['links'] = configparser.get('server', 'db_links_path')
+        settings['store'] = configparser.get('server', 'db_store_path')
     except:
         raise
 
     return settings
 
 
-def update_latest(name, plugins, settings):
-    '''
-    create new directory and pass it to download function in a new thread
-    '''
-
-
-    def timestamp():
-        ts = datetime.datetime.now().strftime('-%y%m%dT%H%M%S')
-        return ts
-    
-    
-    def valid_timedate(plugin, days):
-        ''' False if filename is older than 'days' days, or "initial" '''
-        filename = plugin.LATEST.split('-')[-1]
-        if filename == 'initial' or filename == '':
-            return False
-        ft = datetime.datetime.strptime(filename, '%y%m%dT%H:%M:%S')
-        dt = datetime.date.today() - datetime.timedelta(days=days)
-        return ft > dt
-    
-
-    run  = plugins[name].run
-    dbname = plugins[name].__name__
-    method = plugins[name].method
-
-    data = settings['data']
-    databases = settings['databases']
-    fldownloaded = settings['markerupdated']
-    latest = settings['latest']
-    stable = settings['stable']
-    previous = settings['previous']
-
-    # dependencies
-    for pname, days in plugins[name].dep.items():
-        if valid_timedate(plugins[pname], days):
-           continue
-        print "DEBUG UDATING DEP "
-        
-
-    ldir = os.readlink(os.path.join(databases, dbname, latest))
-    ndir = os.path.join(data, dbname + timestamp())
-
-    if method == 'incremental':
-        shutil.copytree(ldir, ndir)
-    else:
-        os.mkdir(ndir)
-    run_thread = threading.Thread(target=run,
-                                  args=[ndir, fldownloaded])
-    run_thread.start()
-
-    return ndir
+#def update_latest(name, plugins, settings):
+#    '''
+#    create new directory and pass it to download function in a new thread
+#    '''
+#
+#
+#    def timestamp():
+#        ts = datetime.datetime.now().strftime('-%y%m%dT%H%M%S')
+#        return ts
+#    
+#    
+#    def valid_timedate(plugin, days):
+#        ''' False if filename is older than 'days' days, or "initial" '''
+#        filename = plugin.LATEST.split('-')[-1]
+#        if filename == 'initial' or filename == '':
+#            return False
+#        ft = datetime.datetime.strptime(filename, '%y%m%dT%H:%M:%S')
+#        dt = datetime.date.today() - datetime.timedelta(days=days)
+#        return ft > dt
+#    
+#
+#    run  = plugins[name].run
+#    dbname = plugins[name].__name__
+#    method = plugins[name].method
+#
+#    store = settings['store']
+#    databases = settings['databases']
+#    fldownloaded = settings['markerupdated']
+#    latest = settings['latest']
+#    stable = settings['stable']
+#    previous = settings['previous']
+#
+#    # dependencies
+#    for pname, days in plugins[name].dep.items():
+#        if valid_timedate(plugins[pname], days):
+#           continue
+#        print "DEBUG UDATING DEP "
+#        
+#
+#    ldir = os.readlink(os.path.join(databases, dbname, latest))
+#    ndir = os.path.join(store, dbname + timestamp())
+#
+#    if method == 'incremental':
+#        shutil.copytree(ldir, ndir)
+#    else:
+#        os.mkdir(ndir)
+#    run_thread = threading.Thread(target=run,
+#                                  args=[ndir, fldownloaded])
+#    run_thread.start()
+#
+#    return ndir
 
 
 def update_status(statusdict, fname, fsched):
@@ -131,7 +128,7 @@ def update_status(statusdict, fname, fsched):
     return
 
 
-def initial_state(data, databases, e, settings):
+def initial_state(store, links, e, settings):
     '''
     Checks that there is a clean and consistent initial state.
     Function returns 'True' when a test fails.
@@ -167,24 +164,24 @@ def initial_state(data, databases, e, settings):
 
 
     # Test 1: No *-updating directories
-    xdir = os.path.join(data, '{}-{}'.format(e, flupdating))
+    xdir = os.path.join(store, '{}-{}'.format(e, flupdating))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         return True
-    xdir = os.path.join(data, '{}-{}'.format(e, flupdatingstable))
+    xdir = os.path.join(store, '{}-{}'.format(e, flupdatingstable))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         return True
-    xdir = os.path.join(data, '{}-{}'.format(e, flcheck))
+    xdir = os.path.join(store, '{}-{}'.format(e, flcheck))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         return True
 
 
     # Test 2: No more that 3 not-frozen directories
-    pathdirs = os.path.join(data, '{}-*'.format(e))
+    pathdirs = os.path.join(store, '{}-*'.format(e))
     alldirs = glob.glob(pathdirs)
-    frozenpath = os.path.join(data, '{}-*'.format(e), flfrozen)
+    frozenpath = os.path.join(store, '{}-*'.format(e), flfrozen)
     frozenflags = glob.glob(frozenpath)
     frozendirs = [f[:-len('/' + flfrozen)] for f in frozenflags]
     listing = list(set(alldirs) - set(frozendirs))
@@ -195,13 +192,13 @@ def initial_state(data, databases, e, settings):
 
     # Assign links to directories
     listing.sort()
-    makedirs_existsok(os.path.join(databases, e))
-    LATEST = os.path.join(databases, e, latest)
-    STABLE = os.path.join(databases, e, stable)
-    PREVIOUS = os.path.join(databases, e, previous)
+    makedirs_existsok(os.path.join(links, e))
+    LATEST = os.path.join(links, e, latest)
+    STABLE = os.path.join(links, e, stable)
+    PREVIOUS = os.path.join(links, e, previous)
     # no directories, create initial structure
     if len(listing) == 0:
-        ndir = os.path.join(data, '{}-initial'.format(e))
+        ndir = os.path.join(store, '{}-initial'.format(e))
         makedirs_existsok(ndir)
         remove_nexistok(LATEST)
         os.symlink(ndir, LATEST)
@@ -248,7 +245,7 @@ def initial_state(data, databases, e, settings):
     return False
 
 
-def regist_plugins(plugindir, settings):
+def register_plugins(plugindir, settings):
     ''' registration of plugins and scheduling of jobs ''' 
 
     latest = settings['latest']
@@ -264,22 +261,22 @@ def regist_plugins(plugindir, settings):
         module = imp.load_source(e, os.path.join(plugindir, e + '.py'))
         instance[e] = module.create()
         #instance[e].__name__ = os.path.splitext(os.path.basename(module.__file__))[0]
-        instance[e].__name__ = e
+        instance[e].init(e, store=settings['store'], links=settings['links'])
 
         # check start up state
-        fail = initial_state(data, databases, e, settings)
+        fail = initial_state(store, links, e, settings)
         if fail:
             raise Exception('Unclean inital state')
 
         # register jobs (daily and stable)
-        LATEST = os.path.join(databases, e, 'latest')
-        cudir = os.path.join(data, '{}-check_update'.format(e))
+        LATEST = os.path.join(links, e, 'latest')
+        cudir = os.path.join(store, '{}-check_update'.format(e))
         arguments = [cudir, LATEST, flupdate, flwontupdate]
         scheduler.add_job(
             instance[e].check_update_daily, 'cron', args=arguments, name=e,
             day_of_week=instance[e].day_of_week, hour=instance[e].hour,
             minute=instance[e].minute, second=instance[e].second)
-        cusdir = os.path.join(data, '{}-check_update_stable'.format(e))
+        cusdir = os.path.join(store, '{}-check_update_stable'.format(e))
         arguments = [cusdir, flupdatestable]
         scheduler.add_job(
             instance[e].check_update_stable, 'cron', args=arguments, name='{}-stable'.format(e),
@@ -300,8 +297,8 @@ if __name__ == "__main__":
 
     # set up options
     plugindir = get_settings()['plugindir']
-    data = get_settings()['data']
-    databases = get_settings()['databases']
+    store = get_settings()['store']
+    links = get_settings()['links']
     fldownloaded = get_settings()['markerupdated']
     flwontupdate = get_settings()['markerwontupdate']
     flupdate = get_settings()['markerupdate']
@@ -317,7 +314,7 @@ if __name__ == "__main__":
     try:
         # initialization. registration of plugins
         logger.info('Started')
-        plugins = regist_plugins(plugindir, get_settings())
+        plugins = register_plugins(plugindir, get_settings())
         scheduler.start()
 
         while True:
@@ -330,15 +327,13 @@ if __name__ == "__main__":
             for name, p in plugins.items():
 
                 dlstatus = 'up_to_date'
-                cudir = os.path.join(data, '{}-{}'.format(p.__name__, sgn_check))
-                UPDATING = os.path.join(data, '{}-{}'.format(p.__name__, sgn_updating))
+                cudir = os.path.join(store, '{}-{}'.format(p.__name__, sgn_check))
+                UPDATING = os.path.join(store, '{}-{}'.format(p.__name__, sgn_updating))
 
                 # there is a db to update
                 updateme = os.path.join(cudir, flupdate)
                 if os.path.isfile(updateme) and not os.path.exists(UPDATING):
-                    ndir = update_latest(p.__name__, plugins, get_settings())
-                    os.symlink(ndir, UPDATING)
-                    dlstatus = 'updating'
+                    p.update()
                 try:
                     shutil.rmtree(cudir)
                 except:
@@ -361,9 +356,9 @@ if __name__ == "__main__":
                 if os.path.isfile(downloaded):
                     os.remove(downloaded)
                     # update paths and directories
-                    LATEST = os.path.join(databases, p.__name__, latest)
-                    STABLE = os.path.join(databases, p.__name__, stable)
-                    PREVIOUS = os.path.join(databases, p.__name__, previous)
+                    LATEST = os.path.join(links, p.__name__, latest)
+                    STABLE = os.path.join(links, p.__name__, stable)
+                    PREVIOUS = os.path.join(links, p.__name__, previous)
                     ldir = os.readlink(LATEST)
                     sdir = os.readlink(STABLE)
                     pdir = os.readlink(PREVIOUS)
@@ -382,12 +377,12 @@ if __name__ == "__main__":
                     p.PREVIOUS = pdir
 
                 # update stable if there is not daily update running
-                cusdir = os.path.join(data, '{}-{}'.format(p.__name__, sgn_checkstable))
+                cusdir = os.path.join(store, '{}-{}'.format(p.__name__, sgn_checkstable))
                 if os.path.exists(cusdir) and not os.path.exists(UPDATING):
                     # update paths and directories
-                    LATEST = os.path.join(databases, p.__name__, latest)
-                    STABLE = os.path.join(databases, p.__name__, stable)
-                    PREVIOUS = os.path.join(databases, p.__name__, previous)
+                    LATEST = os.path.join(links, p.__name__, latest)
+                    STABLE = os.path.join(links, p.__name__, stable)
+                    PREVIOUS = os.path.join(links, p.__name__, previous)
                     ldir = os.readlink(LATEST)
                     sdir = os.readlink(STABLE)
                     pdir = os.readlink(PREVIOUS)

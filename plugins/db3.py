@@ -18,7 +18,7 @@ class Plugin(baseplugin.Base):
 
         # frequency for checking if updates are available
         # sec, min, hours, day of week (in cron format)
-        self.check_freq('0', '*/1', '*', '*')
+        self.check_freq('0', '*/15', '*', '*')
         self.check_freq_stable('0', '0', '*/1', '*')
 
         # contact name, email
