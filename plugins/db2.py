@@ -22,12 +22,12 @@ class Plugin(baseplugin.Base):
 
         # frequency for checking if updates are available
         # sec, min, hours, day of week (in cron format)
-        self.check_freq('*/20', '*', '*', '*')
-        self.check_freq_stable('0', '0', '*/1', '*')
+        self.freq('*/20', '*', '*', '*')
+        self.freq_stable('0', '0', '*/1', '*')
 
         # contact name, email
-        #self.contact = 'Ross Mccants'
-        self.email = 'ross.mccants@unibas.ch'
+        self.contact = 'Juan Perez'
+        self.email = 'juan.perez@unibas.ch'
 
         self.logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class Plugin(baseplugin.Base):
             self.logger.debug('Release files do not match. Updating.')
             return True
 
-    def run(self, PATH, FLAG_FINISHED):
+    def run(self, WORK_PATH):
         '''
         Script to download and expand database in the PATH directory.
         It must write FLAG_FINISHED to indicate that download finished
@@ -66,14 +66,15 @@ class Plugin(baseplugin.Base):
         rfilename = 'database'
         rpath = '/import/bc2/data/test/remotedb'
         currentrel = os.path.join(rpath, rfilename)
-        previousrel = os.path.join(PATH, rfilename)
+        previousrel = os.path.join(WORK_PATH, rfilename)
         shutil.copy(currentrel, previousrel)
-        previousrel = os.path.join(PATH, 'localdatabase')
+        previousrel = os.path.join(WORK_PATH, 'localdatabase')
         with open(previousrel, 'a') as f:
             f.write(open(currentrel, 'r').read())
         time.sleep(5)
 
         # TODO: move this out of the user space.
         # write flag indicating download finished
-        open(os.path.join(PATH, FLAG_FINISHED), 'w').close()
+        #open(os.path.join(PATH, FLAG_FINISHED), 'w').close()
+        self.status = self.SGN_FINISHED
         return

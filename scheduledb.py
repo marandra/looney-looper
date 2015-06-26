@@ -18,19 +18,8 @@ def get_settings():
     configparser = ConfigParser.SafeConfigParser(os.environ)
     configparser.read("./settings.ini")
     settings = {
-        'markerupdated': "FINISHED_DOWNLOAD",
-        'markerwontupdate': "WILL_NOT_UPDATE",
-        'markerupdate': "UPDATEME",
-        'markerupdatestable': "UPDATEME_STABLE",
         'markerfrozen': "FROZEN_VERSION",
         'log_file': "default.log",
-        'latest': "latest",
-        'stable': "stable",
-        'previous': "previous",
-        'sgn_check': "check_update",
-        'sgn_checkstable': "check_update_stable",
-        'sgn_updating': "updating",
-        'sgn_updatingstable': "updating_stable",
     }
     try:
         settings['plugindir'] = configparser.get('server', 'plugins_path')
@@ -40,59 +29,6 @@ def get_settings():
         raise
 
     return settings
-
-
-#def update_latest(name, plugins, settings):
-#    '''
-#    create new directory and pass it to download function in a new thread
-#    '''
-#
-#
-#    def timestamp():
-#        ts = datetime.datetime.now().strftime('-%y%m%dT%H%M%S')
-#        return ts
-#    
-#    
-#    def valid_timedate(plugin, days):
-#        ''' False if filename is older than 'days' days, or "initial" '''
-#        filename = plugin.LATEST.split('-')[-1]
-#        if filename == 'initial' or filename == '':
-#            return False
-#        ft = datetime.datetime.strptime(filename, '%y%m%dT%H:%M:%S')
-#        dt = datetime.date.today() - datetime.timedelta(days=days)
-#        return ft > dt
-#    
-#
-#    run  = plugins[name].run
-#    dbname = plugins[name].__name__
-#    method = plugins[name].method
-#
-#    store = settings['store']
-#    databases = settings['databases']
-#    fldownloaded = settings['markerupdated']
-#    latest = settings['latest']
-#    stable = settings['stable']
-#    previous = settings['previous']
-#
-#    # dependencies
-#    for pname, days in plugins[name].dep.items():
-#        if valid_timedate(plugins[pname], days):
-#           continue
-#        print "DEBUG UDATING DEP "
-#        
-#
-#    ldir = os.readlink(os.path.join(databases, dbname, latest))
-#    ndir = os.path.join(store, dbname + timestamp())
-#
-#    if method == 'incremental':
-#        shutil.copytree(ldir, ndir)
-#    else:
-#        os.mkdir(ndir)
-#    run_thread = threading.Thread(target=run,
-#                                  args=[ndir, fldownloaded])
-#    run_thread.start()
-#
-#    return ndir
 
 
 def update_status(statusdict, fname, fsched):
@@ -128,7 +64,7 @@ def update_status(statusdict, fname, fsched):
     return
 
 
-def initial_state(store, links, e, settings):
+def initial_state(p, settings):
     '''
     Checks that there is a clean and consistent initial state.
     Function returns 'True' when a test fails.
@@ -154,34 +90,27 @@ def initial_state(store, links, e, settings):
             if e.errno != errno.ENOENT:
                 raise
 
-    latest = settings['latest']
-    stable = settings['stable']
-    previous = settings['previous']
     flfrozen = settings['markerfrozen']
-    flcheck = settings['sgn_check']
-    flupdating = settings['sgn_updating']
-    flupdatingstable = settings['sgn_updatingstable']
+    flupdating = p.SGN_UPDATING
+    store = settings['store']
+    flcheck = p.SGN_CHECKING
 
 
     # Test 1: No *-updating directories
-    xdir = os.path.join(store, '{}-{}'.format(e, flupdating))
+    xdir = os.path.join(store, '{}-{}'.format(p.__name__, flupdating))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         return True
-    xdir = os.path.join(store, '{}-{}'.format(e, flupdatingstable))
-    if os.path.exists(xdir):
-        logger.error("{} exists".format(xdir))
-        return True
-    xdir = os.path.join(store, '{}-{}'.format(e, flcheck))
+    xdir = os.path.join(store, '{}-{}'.format(p.__name__, flcheck))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         return True
 
 
     # Test 2: No more that 3 not-frozen directories
-    pathdirs = os.path.join(store, '{}-*'.format(e))
+    pathdirs = os.path.join(store, p.__name__ + '-*')
     alldirs = glob.glob(pathdirs)
-    frozenpath = os.path.join(store, '{}-*'.format(e), flfrozen)
+    frozenpath = os.path.join(store, p.__name__ + '-*', flfrozen)
     frozenflags = glob.glob(frozenpath)
     frozendirs = [f[:-len('/' + flfrozen)] for f in frozenflags]
     listing = list(set(alldirs) - set(frozendirs))
@@ -192,10 +121,10 @@ def initial_state(store, links, e, settings):
 
     # Assign links to directories
     listing.sort()
-    makedirs_existsok(os.path.join(links, e))
-    LATEST = os.path.join(links, e, latest)
-    STABLE = os.path.join(links, e, stable)
-    PREVIOUS = os.path.join(links, e, previous)
+    makedirs_existsok(os.path.join(links, p.__name__))
+    LATEST = p.l_latest
+    STABLE = p.l_stable
+    PREVIOUS = p.l_previous
     # no directories, create initial structure
     if len(listing) == 0:
         ndir = os.path.join(store, '{}-initial'.format(e))
@@ -248,10 +177,6 @@ def initial_state(store, links, e, settings):
 def register_plugins(plugindir, settings):
     ''' registration of plugins and scheduling of jobs ''' 
 
-    latest = settings['latest']
-    stable = settings['stable']
-    previous = settings['previous']
-
     plugins = map(os.path.basename, glob.glob(os.path.join(plugindir, '*.py')))
     plugins = [p[:-3] for p in plugins]
    
@@ -264,22 +189,21 @@ def register_plugins(plugindir, settings):
         instance[e].init(e, store=settings['store'], links=settings['links'])
 
         # check start up state
-        fail = initial_state(store, links, e, settings)
+        fail = initial_state(instance[e], settings)
         if fail:
             raise Exception('Unclean inital state')
 
         # register jobs (daily and stable)
-        LATEST = os.path.join(links, e, 'latest')
         cudir = os.path.join(store, '{}-check_update'.format(e))
-        arguments = [cudir, LATEST, flupdate, flwontupdate]
+        arguments = []
         scheduler.add_job(
-            instance[e].check_update_daily, 'cron', args=arguments, name=e,
+            instance[e].check, 'cron', args=arguments, name=e,
             day_of_week=instance[e].day_of_week, hour=instance[e].hour,
             minute=instance[e].minute, second=instance[e].second)
         cusdir = os.path.join(store, '{}-check_update_stable'.format(e))
-        arguments = [cusdir, flupdatestable]
+        arguments = []
         scheduler.add_job(
-            instance[e].check_update_stable, 'cron', args=arguments, name='{}-stable'.format(e),
+            instance[e].update_stable, 'cron', args=arguments, name='{}-stable'.format(e),
             day_of_week=instance[e].stable_day_of_week, hour=instance[e].stable_hour,
             minute=instance[e].stable_minute, second=instance[e].stable_second)
 
@@ -299,17 +223,7 @@ if __name__ == "__main__":
     plugindir = get_settings()['plugindir']
     store = get_settings()['store']
     links = get_settings()['links']
-    fldownloaded = get_settings()['markerupdated']
-    flwontupdate = get_settings()['markerwontupdate']
-    flupdate = get_settings()['markerupdate']
-    flupdatestable = get_settings()['markerupdatestable']
     flfrozen = get_settings()['markerfrozen']
-    sgn_check = get_settings()['sgn_check']
-    sgn_checkstable = get_settings()['sgn_checkstable']
-    sgn_updating = get_settings()['sgn_updating']
-    latest = get_settings()['latest']
-    stable = get_settings()['stable']
-    previous = get_settings()['previous']
 
     try:
         # initialization. registration of plugins
@@ -318,93 +232,45 @@ if __name__ == "__main__":
         scheduler.start()
 
         while True:
-            time.sleep(2)
-            fo = open('schedulerjobs.log', 'w')
-            scheduler.print_jobs(out=fo)
-            fo.close()
+            time.sleep(1)
+            with open('schedulerjobs.log', 'w') as fo:
+                scheduler.print_jobs(out=fo)
             status = {}
-            #for i, e in enumerate(plugins):
             for name, p in plugins.items():
 
-                dlstatus = 'up_to_date'
-                cudir = os.path.join(store, '{}-{}'.format(p.__name__, sgn_check))
-                UPDATING = os.path.join(store, '{}-{}'.format(p.__name__, sgn_updating))
-
                 # there is a db to update
-                updateme = os.path.join(cudir, flupdate)
-                if os.path.isfile(updateme) and not os.path.exists(UPDATING):
+                if p.status == p.SGN_UPDATEME:
                     p.update()
-                try:
-                    shutil.rmtree(cudir)
-                except:
-                    pass
 
-                # there is not db to update
-                dont_updateme = os.path.join(cudir, flwontupdate)
-                if os.path.isfile(dont_updateme):
-                    shutil.rmtree(cudir)
-
-                # is there a db updating?
-                try:
-                    os.readlink(UPDATING)
-                    dlstatus = 'updating'
-                except:
-                    pass
-
-                # finished downloading. mv directories, update symlinks
-                downloaded = os.path.join(UPDATING, fldownloaded)
-                if os.path.isfile(downloaded):
-                    os.remove(downloaded)
-                    # update paths and directories
-                    LATEST = os.path.join(links, p.__name__, latest)
-                    STABLE = os.path.join(links, p.__name__, stable)
-                    PREVIOUS = os.path.join(links, p.__name__, previous)
-                    ldir = os.readlink(LATEST)
-                    sdir = os.readlink(STABLE)
-                    pdir = os.readlink(PREVIOUS)
-                    ndir = os.readlink(UPDATING)
-                    os.remove(UPDATING)
+                # finished downloading: rm directory, update symlinks
+                if p.status == p.SGN_FINISHED:
+                    p.refreshlinks()
+                    os.remove(p.l_updating)
                     # are there other symlink pointing to LATEST?
                     # also, do not delete directory if frozen
-                    isfrozen = os.path.isfile(os.path.join(ldir, flfrozen))
-                    if ldir != sdir and ldir != pdir and not isfrozen:
-                            shutil.rmtree(ldir)
-                    os.remove(LATEST)
-                    os.symlink(ndir, LATEST)
-                    # update links in instance
-                    p.LATEST = ldir
-                    p.STABLE = sdir
-                    p.PREVIOUS = pdir
+                    isfrozen = os.path.isfile(os.path.join(p.d_latest, flfrozen))
+                    if p.d_latest != p.d_stable and p.d_latest != p.d_previous and not isfrozen:
+                            shutil.rmtree(p.d_latest)
+                    os.remove(p.l_latest)
+                    os.symlink(p.d_updating, p.l_latest)
+                    p.refreshlinks()
+                    p.status = p.SGN_UPTODATE
 
                 # update stable if there is not daily update running
-                cusdir = os.path.join(store, '{}-{}'.format(p.__name__, sgn_checkstable))
-                if os.path.exists(cusdir) and not os.path.exists(UPDATING):
-                    # update paths and directories
-                    LATEST = os.path.join(links, p.__name__, latest)
-                    STABLE = os.path.join(links, p.__name__, stable)
-                    PREVIOUS = os.path.join(links, p.__name__, previous)
-                    ldir = os.readlink(LATEST)
-                    sdir = os.readlink(STABLE)
-                    pdir = os.readlink(PREVIOUS)
-                    shutil.rmtree(cusdir)
-                    # only update stable when not up to date
-                    if sdir != ldir:
-                        os.remove(STABLE)
-                        os.symlink(ldir, STABLE)
-                        os.remove(PREVIOUS)
-                        os.symlink(sdir, PREVIOUS)
-                        # initial case, "previous" and "stable" are the same
-                        isfrozen = os.path.isfile(os.path.join(pdir, flfrozen))
-                        if sdir != pdir and not isfrozen:
-                            shutil.rmtree(pdir)
-                
-                    # update links in instance
-                    p.LATEST = ldir
-                    p.STABLE = sdir
-                    p.PREVIOUS = pdir
+                if p.status_stable == p.SGN_UPDATEME and p.status == p.SGN_UPTODATE and p.d_stable != p.d_latest:
+                    os.remove(p.l_stable)
+                    os.symlink(p.d_latest ,ldir, p.l_stable)
+                    os.remove(p.l_previous)
+                    os.symlink(p.d_stable, p.l_previous)
+                    # initial case, "previous" and "stable" are the same
+                    isfrozen = os.path.isfile(os.path.join(p.d_previous, flfrozen))
+                    if p.d_stable != p.d_previous and not isfrozen:
+                        shutil.rmtree(p.d_previous)
+                    p.refreshlinks()
+                    p.status_stable = p.SGN_UPTODATE
 
                 status[p.__name__] = dict(
-                    status=dlstatus, contact=p.contact, email=p.email)
+                    status=p.status, contact=p.contact, email=p.email)
 
             update_status(status, 'status.log', 'schedulerjobs.log')
 
