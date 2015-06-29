@@ -24,11 +24,13 @@ class Base:
         self.SGN_UPTODATE = 'up_to_date'
         self.SGN_UPDATEME = 'update_me'
         self.SGN_CHECKING = 'checking'
+        self.SGN_FROZEN = 'FROZEN_VERSION'
         self.SGN_LATEST = 'latest'
         self.SGN_STABLE = 'stable'
         self.SGN_PREVIOUS = 'previous'
         self.STORE = store
         self.LINKS = links
+        self.UPDATE_STABLE = False
 
         # runtime variables
         self.status = self.SGN_UPTODATE
@@ -48,17 +50,21 @@ class Base:
         self.d_stable = os.readlink(self.l_stable)
         self.d_previous = os.readlink(self.l_previous)
 
-    def freq(self, second, minute, hour, day_of_week):
-        self.second = second
-        self.minute = minute
+    def freq(self, sec=None, min=None, hour=None, dow=None):
+        self.second = sec
+        self.minute = min
         self.hour = hour
-        self.day_of_week = day_of_week
+        self.day_of_week = dow
 
-    def freq_stable(self, second, minute, hour, day_of_week):
-        self.stable_second = second
-        self.stable_minute = minute
+    def freq_stable(self, sec=None, min=None, hour=None, dow=None):
+        if sec is None and min is None and hour is None and dow is None:
+            self.UPDATE_STABLE = False
+        else:
+            self.UPDATE_STABLE = True
+        self.stable_second = sec
+        self.stable_minute = min
         self.stable_hour = hour
-        self.stable_day_of_week = day_of_week
+        self.stable_day_of_week = dow
 
     def update_stable(self):
         self.status_stable = self.SGN_UPDATEME
@@ -111,4 +117,100 @@ class Base:
         if not wait:
             run_thread.setDaemon(True)
         run_thread.start()
+
+    def initial_state_not_clean(self, p, settings):
+        '''
+        Checks that there is a clean and consistent initial state.
+        Function returns 'True' when a test fails.
+        Tests: 
+          Test 1: No temp (*-updating, update stable, check_update, ...)  directories
+          Test 2: No more that 3 not frozen directories
+        After passing the test, it assigns the links to the present directories
+        '''
+
+
+        def makedirs_existsok(path):
+            try:
+                os.makedirs(path)
+            except:
+                if not os.path.isdir(path):
+                    raise
+    
+    
+        def remove_nexistok(filename):
+            try:
+                os.remove(filename)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+
+        # Test 1: No *-updating directories
+        if self.l_updating:
+            raise Exception(self.l_updating + " exists")
+        if self.d_checking:
+            raise Exception(self.d_checking + " exists")
+    
+    
+        # Test 2: No more that 3 not-frozen directories
+        pathdirs = os.path.join(self.STORE, p.__name__ + '-*')
+        alldirs = glob.glob(pathdirs)
+        frozenpath = os.path.join(self.STORE, p.__name__ + '-*', p.SGN_FROZEN)
+        frozenflags = glob.glob(frozenpath)
+        frozendirs = [f[:-len('/' + p.SGN_FROZEN)] for f in frozenflags]
+        listing = list(set(alldirs) - set(frozendirs))
+        if len(listing) > 1:
+            raise Exception("More than 1 non-frozen version: {}".format(pathdirs))
+    
+    
+        # Assign links to directories
+        listing.sort()
+        makedirs_existsok(os.path.join(links, p.__name__))
+        # no directories, create initial structure
+        if len(listing) == 0:
+            ndir = os.path.join(store, '{}-initial'.format(e))
+            makedirs_existsok(ndir)
+            remove_nexistok(p.l_latest)
+            os.symlink(ndir, p.l_latest)
+            remove_nexistok(p.l_stable)
+            os.symlink(ndir, p.l_stable)
+            remove_nexistok(p.l_previous)
+            os.symlink(ndir, p.l_previous)
+        if len(listing) == 1:
+            remove_nexistok(p.l_latest)
+            os.symlink(listing[0], p.l_latest)
+            remove_nexistok(p.l_stable)
+            os.symlink(listing[0], p.l_stable)
+            remove_nexistok(p.l_previous)
+            os.symlink(listing[0], p.l_previous)
+        if len(listing) == 2:
+            # oldest goes to "previous"
+            ndir = listing[0]
+            remove_nexistok(p.l_previous)
+            os.symlink(ndir, p.l_previous)
+            # newest goes to "latest"
+            ndir = listing[1]
+            remove_nexistok(p.l_latest)
+            os.symlink(ndir, p.l_latest)
+            # "stable" points to anyone, if not, assign it to newest
+    
+            try:
+                sdir = os.readlink(p.l_stable)
+                if not sdir == listing[0] and not sdir == listing[1]:
+                    remove_nexistok(p.l_stable)
+                    os.symlink(ndir, p.l_stable)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+                else:
+                    os.symlink(ndir, p.l_stable)
+        if len(listing) == 3:
+            remove_nexistok(p.l_previous)
+            os.symlink(listing[0], p.l_previous)
+            remove_nexistok(p.l_stable)
+            os.symlink(listing[1], p.l_stable)
+            remove_nexistok(p.l_latest)
+            os.symlink(listing[2], p.l_latest)
+    
+    
+        return False
 

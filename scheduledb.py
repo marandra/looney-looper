@@ -18,7 +18,6 @@ def get_settings():
     configparser = ConfigParser.SafeConfigParser(os.environ)
     configparser.read("./settings.ini")
     settings = {
-        'markerfrozen': "FROZEN_VERSION",
         'log_file': "default.log",
     }
     try:
@@ -90,18 +89,14 @@ def initial_state(p, settings):
             if e.errno != errno.ENOENT:
                 raise
 
-    flfrozen = settings['markerfrozen']
-    flupdating = p.SGN_UPDATING
     store = settings['store']
-    flcheck = p.SGN_CHECKING
-
 
     # Test 1: No *-updating directories
-    xdir = os.path.join(store, '{}-{}'.format(p.__name__, flupdating))
+    xdir = os.path.join(store, '{}-{}'.format(p.__name__, p.SGN_UPDATING))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         return True
-    xdir = os.path.join(store, '{}-{}'.format(p.__name__, flcheck))
+    xdir = os.path.join(store, '{}-{}'.format(p.__name__, p.SGN_CHECKING))
     if os.path.exists(xdir):
         logger.error("{} exists".format(xdir))
         return True
@@ -110,9 +105,9 @@ def initial_state(p, settings):
     # Test 2: No more that 3 not-frozen directories
     pathdirs = os.path.join(store, p.__name__ + '-*')
     alldirs = glob.glob(pathdirs)
-    frozenpath = os.path.join(store, p.__name__ + '-*', flfrozen)
+    frozenpath = os.path.join(store, p.__name__ + '-*', p.SGN_FROZEN)
     frozenflags = glob.glob(frozenpath)
-    frozendirs = [f[:-len('/' + flfrozen)] for f in frozenflags]
+    frozendirs = [f[:-len('/' + p.SGN_FROZEN)] for f in frozenflags]
     listing = list(set(alldirs) - set(frozendirs))
     if len(listing) > 3:
         logger.error("More than 3 not frozen versions: {}".format(pathdirs))
@@ -194,18 +189,15 @@ def register_plugins(plugindir, settings):
             raise Exception('Unclean inital state')
 
         # register jobs (daily and stable)
-        cudir = os.path.join(store, '{}-check_update'.format(e))
-        arguments = []
         scheduler.add_job(
-            instance[e].check, 'cron', args=arguments, name=e,
+            instance[e].check, 'cron', args=[], name=e,
             day_of_week=instance[e].day_of_week, hour=instance[e].hour,
             minute=instance[e].minute, second=instance[e].second)
-        cusdir = os.path.join(store, '{}-check_update_stable'.format(e))
-        arguments = []
-        scheduler.add_job(
-            instance[e].update_stable, 'cron', args=arguments, name='{}-stable'.format(e),
-            day_of_week=instance[e].stable_day_of_week, hour=instance[e].stable_hour,
-            minute=instance[e].stable_minute, second=instance[e].stable_second)
+        if instance[e].UPDATE_STABLE:
+            scheduler.add_job(
+                instance[e].update_stable, 'cron', args=[], name='{}-stable'.format(e),
+                day_of_week=instance[e].stable_day_of_week, hour=instance[e].stable_hour,
+                minute=instance[e].stable_minute, second=instance[e].stable_second)
 
     return instance
 
@@ -223,7 +215,6 @@ if __name__ == "__main__":
     plugindir = get_settings()['plugindir']
     store = get_settings()['store']
     links = get_settings()['links']
-    flfrozen = get_settings()['markerfrozen']
 
     try:
         # initialization. registration of plugins
@@ -248,7 +239,7 @@ if __name__ == "__main__":
                     os.remove(p.l_updating)
                     # are there other symlink pointing to LATEST?
                     # also, do not delete directory if frozen
-                    isfrozen = os.path.isfile(os.path.join(p.d_latest, flfrozen))
+                    isfrozen = os.path.isfile(os.path.join(p.d_latest, p.SGN_FROZEN))
                     if p.d_latest != p.d_stable and p.d_latest != p.d_previous and not isfrozen:
                             shutil.rmtree(p.d_latest)
                     os.remove(p.l_latest)
@@ -263,7 +254,7 @@ if __name__ == "__main__":
                     os.remove(p.l_previous)
                     os.symlink(p.d_stable, p.l_previous)
                     # initial case, "previous" and "stable" are the same
-                    isfrozen = os.path.isfile(os.path.join(p.d_previous, flfrozen))
+                    isfrozen = os.path.isfile(os.path.join(p.d_previous, p.SGN_FROZEN))
                     if p.d_stable != p.d_previous and not isfrozen:
                         shutil.rmtree(p.d_previous)
                     p.refreshlinks()
