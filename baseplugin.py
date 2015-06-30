@@ -59,20 +59,22 @@ class Base:
         raise Exception('NotImplemented. '
             'The method needs to be implemented in subclasses')
 
-    def freq(self, sec=None, min=None, hour=None, dow=None):
-        if sec is None and min is None and hour is None and dow is None:
+    def freq(self, sec=None, min=None, hour=None, day=None, dow=None):
+        if sec is None and min is None and hour is None and day is None and dow is None:
             raise Exception("No update frequency provided")
         self.second = sec
         self.minute = min
         self.hour = hour
+        self.day = day
         self.day_of_week = dow
 
-    def freq_stable(self, sec=None, min=None, hour=None, dow=None):
+    def freq_stable(self, sec=None, min=None, hour=None, day=None, dow=None):
         self.stable_second = sec
         self.stable_minute = min
         self.stable_hour = hour
+        self.stable_day = day
         self.stable_day_of_week = dow
-        if sec is not None or min is not None or hour is not None or dow is not None:
+        if sec is not None or min is not None or hour is not None or day is not None or dow is not None:
             self.UPDATE_STABLE = True
 
     def refreshlinks(self):
@@ -91,15 +93,15 @@ class Base:
             if not os.path.isdir(TMPPATH):
                 raise
             else:
-                os.removedirs(TMPPATH)
+                shutil.rmtree(TMPPATH)
                 os.makedirs(TMPPATH)
 
         if self.check_update(TMPPATH, self.l_latest):
             self.status = self.SGN_UPDATEME
         else:
             self.status = self.SGN_UPTODATE
+        shutil.rmtree(TMPPATH)
         self.logger.info(self.status)
-        os.removedirs(TMPPATH)
         return
 
     def check_update_stable(self):
@@ -121,25 +123,26 @@ class Base:
 
     def update_db(self, wait=False):
         ''' create new directory and launch run() function in a new thread '''
-        self.status = self.SGN_UPDATING
-        timestamp = datetime.datetime.now().strftime('-%y%m%dT%H%M%S')
-        self.d_updating = os.path.join(self.STORE, self.__name__ + timestamp)
-        if self.method == 'incremental':
-            shutil.copytree(self.l_latest, self.d_updating)
-            try:
-                os.remove(os.path.join(self.d_updating, self.SGN_FROZEN))
-            except OSError as e:
-                if e.errno != errno.ENOENT:
-                    raise
-            
-        elif self.method == 'scratch':
-            os.mkdir(self.d_updating)
-        os.symlink(self.d_updating, self.l_updating)
-        run_thread = threading.Thread(target=self.run, args=[self.l_updating])
-        if not wait:
-            run_thread.setDaemon(True)
-        run_thread.start()
-        self.create_frozen_links()
+        if self.status == self.SGN_UPDATEME:
+            self.status = self.SGN_UPDATING
+            timestamp = datetime.datetime.now().strftime('-%y%m%dT%H%M%S')
+            self.d_updating = os.path.join(self.STORE, self.__name__ + timestamp)
+            if self.method == 'incremental':
+                shutil.copytree(self.l_latest, self.d_updating)
+                try:
+                    os.remove(os.path.join(self.d_updating, self.SGN_FROZEN))
+                except OSError as e:
+                    if e.errno != errno.ENOENT:
+                        raise
+                
+            elif self.method == 'scratch':
+                os.mkdir(self.d_updating)
+            os.symlink(self.d_updating, self.l_updating)
+            run_thread = threading.Thread(target=self.run, args=[self.l_updating])
+            if not wait:
+                run_thread.setDaemon(True)
+            run_thread.start()
+            self.create_frozen_links()
 
     def update_links(self):
         self.refreshlinks()
@@ -192,7 +195,7 @@ class Base:
         makedirs_existsok(os.path.join(self.LINKS, self.__name__))
         # no directories, create initial structure
         if len(listing) == 0:
-            ndir = os.path.join(self.STORE, self.__name__ + '-initial')
+            ndir = os.path.join(self.STORE, self.__name__ + '-000000T000000')
             makedirs_existsok(ndir)
             remove_nexistok(self.l_latest)
             os.symlink(ndir, self.l_latest)

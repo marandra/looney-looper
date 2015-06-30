@@ -1,0 +1,4 @@
+[server]
+plugins_path=/scicore/data/managed/.plugins
+db_links_path=/scicore/data/managed
+db_store_path=/scicore/data/managed/store

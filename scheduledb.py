@@ -87,12 +87,12 @@ def register_plugins(plugindir, settings):
         scheduler.add_job(
             instance[e].check, 'cron', args=[], name=e,
             day_of_week=instance[e].day_of_week, hour=instance[e].hour,
-            minute=instance[e].minute, second=instance[e].second)
+            day=instance[e].day, minute=instance[e].minute, second=instance[e].second)
         if instance[e].UPDATE_STABLE:
             scheduler.add_job(
                 instance[e].check_update_stable, 'cron', args=[], name='{}-stable'.format(e),
                 day_of_week=instance[e].stable_day_of_week, hour=instance[e].stable_hour,
-                minute=instance[e].stable_minute, second=instance[e].stable_second)
+                day=instance[e].stable_day, minute=instance[e].stable_minute, second=instance[e].stable_second)
 
     return instance
 
@@ -114,8 +114,8 @@ if __name__ == "__main__":
     try:
         # initialization. registration of plugins
         logger.info('Started')
-        plugins = register_plugins(plugindir, get_settings())
         scheduler.start()
+        plugins = register_plugins(plugindir, get_settings())
 
         while True:
             time.sleep(1)
@@ -131,17 +131,6 @@ if __name__ == "__main__":
                 # finished downloading: rm directory, update symlinks
                 if p.status == p.SGN_FINISHED:
                     p.update_links()
-                    #p.refreshlinks()
-                    #os.remove(p.l_updating)
-                    ## are there other symlink pointing to LATEST?
-                    ## also, do not delete directory if frozen
-                    #isfrozen = os.path.isfile(os.path.join(p.d_latest, p.SGN_FROZEN))
-                    #if p.d_latest != p.d_stable and p.d_latest != p.d_previous and not isfrozen:
-                    #        shutil.rmtree(p.d_latest)
-                    #os.remove(p.l_latest)
-                    #os.symlink(p.d_updating, p.l_latest)
-                    #p.refreshlinks()
-                    #p.status = p.SGN_UPTODATE
 
                 # update stable if there is not daily update running
                 if p.status_stable == p.SGN_UPDATEME:
