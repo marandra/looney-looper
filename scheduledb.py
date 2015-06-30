@@ -63,112 +63,6 @@ def update_status(statusdict, fname, fsched):
     return
 
 
-def initial_state(p, settings):
-    '''
-    Checks that there is a clean and consistent initial state.
-    Function returns 'True' when a test fails.
-    Tests: 
-      Test 1: No temp (*-updating, update stable, check_update, ...)  directories
-      Test 2: No more that 3 not frozen directories
-    After passing the test, it assigns the links to the present directories
-    '''
-
-
-    def makedirs_existsok(path):
-        try:
-            os.makedirs(path)
-        except:
-            if not os.path.isdir(path):
-                raise
-
-
-    def remove_nexistok(filename):
-        try:
-            os.remove(filename)
-        except OSError as e:
-            if e.errno != errno.ENOENT:
-                raise
-
-    store = settings['store']
-
-    # Test 1: No *-updating directories
-    xdir = os.path.join(store, '{}-{}'.format(p.__name__, p.SGN_UPDATING))
-    if os.path.exists(xdir):
-        logger.error("{} exists".format(xdir))
-        return True
-    xdir = os.path.join(store, '{}-{}'.format(p.__name__, p.SGN_CHECKING))
-    if os.path.exists(xdir):
-        logger.error("{} exists".format(xdir))
-        return True
-
-
-    # Test 2: No more that 3 not-frozen directories
-    pathdirs = os.path.join(store, p.__name__ + '-*')
-    alldirs = glob.glob(pathdirs)
-    frozenpath = os.path.join(store, p.__name__ + '-*', p.SGN_FROZEN)
-    frozenflags = glob.glob(frozenpath)
-    frozendirs = [f[:-len('/' + p.SGN_FROZEN)] for f in frozenflags]
-    listing = list(set(alldirs) - set(frozendirs))
-    if len(listing) > 3:
-        logger.error("More than 3 not frozen versions: {}".format(pathdirs))
-        return True
-
-
-    # Assign links to directories
-    listing.sort()
-    makedirs_existsok(os.path.join(links, p.__name__))
-    LATEST = p.l_latest
-    STABLE = p.l_stable
-    PREVIOUS = p.l_previous
-    # no directories, create initial structure
-    if len(listing) == 0:
-        ndir = os.path.join(store, '{}-initial'.format(e))
-        makedirs_existsok(ndir)
-        remove_nexistok(LATEST)
-        os.symlink(ndir, LATEST)
-        remove_nexistok(STABLE)
-        os.symlink(ndir, STABLE)
-        remove_nexistok(PREVIOUS)
-        os.symlink(ndir, PREVIOUS)
-    if len(listing) == 1:
-        remove_nexistok(LATEST)
-        os.symlink(listing[0], LATEST)
-        remove_nexistok(STABLE)
-        os.symlink(listing[0], STABLE)
-        remove_nexistok(PREVIOUS)
-        os.symlink(listing[0], PREVIOUS)
-    if len(listing) == 2:
-        # oldest goes to "previous"
-        ndir = listing[0]
-        remove_nexistok(PREVIOUS)
-        os.symlink(ndir, PREVIOUS)
-        # newest goes to "latest"
-        ndir = listing[1]
-        remove_nexistok(LATEST)
-        os.symlink(ndir, LATEST)
-        # "stable" points to anyone, if not, assign it to newest
-        try:
-            sdir = os.readlink(STABLE)
-            if not sdir == listing[0] and not sdir == listing[1]:
-                remove_nexistok(STABLE)
-                os.symlink(ndir, STABLE)
-        except OSError as e:
-            if e.errno != errno.ENOENT:
-                raise
-            else:
-                os.symlink(ndir, STABLE)
-    if len(listing) == 3:
-        remove_nexistok(PREVIOUS)
-        os.symlink(listing[0], PREVIOUS)
-        remove_nexistok(STABLE)
-        os.symlink(listing[1], STABLE)
-        remove_nexistok(LATEST)
-        os.symlink(listing[2], LATEST)
-
-
-    return False
-
-
 def register_plugins(plugindir, settings):
     ''' registration of plugins and scheduling of jobs ''' 
 
@@ -184,9 +78,10 @@ def register_plugins(plugindir, settings):
         instance[e].init(e, store=settings['store'], links=settings['links'])
 
         # check start up state
-        fail = initial_state(instance[e], settings)
-        if fail:
-            raise Exception('Unclean inital state')
+        try:
+            instance[e].initial_state_clean(settings)
+        except:
+           raise
 
         # register jobs (daily and stable)
         scheduler.add_job(
@@ -195,7 +90,7 @@ def register_plugins(plugindir, settings):
             minute=instance[e].minute, second=instance[e].second)
         if instance[e].UPDATE_STABLE:
             scheduler.add_job(
-                instance[e].update_stable, 'cron', args=[], name='{}-stable'.format(e),
+                instance[e].check_update_stable, 'cron', args=[], name='{}-stable'.format(e),
                 day_of_week=instance[e].stable_day_of_week, hour=instance[e].stable_hour,
                 minute=instance[e].stable_minute, second=instance[e].stable_second)
 
@@ -231,34 +126,26 @@ if __name__ == "__main__":
 
                 # there is a db to update
                 if p.status == p.SGN_UPDATEME:
-                    p.update()
+                    p.update_db()
 
                 # finished downloading: rm directory, update symlinks
                 if p.status == p.SGN_FINISHED:
-                    p.refreshlinks()
-                    os.remove(p.l_updating)
-                    # are there other symlink pointing to LATEST?
-                    # also, do not delete directory if frozen
-                    isfrozen = os.path.isfile(os.path.join(p.d_latest, p.SGN_FROZEN))
-                    if p.d_latest != p.d_stable and p.d_latest != p.d_previous and not isfrozen:
-                            shutil.rmtree(p.d_latest)
-                    os.remove(p.l_latest)
-                    os.symlink(p.d_updating, p.l_latest)
-                    p.refreshlinks()
-                    p.status = p.SGN_UPTODATE
+                    p.update_links()
+                    #p.refreshlinks()
+                    #os.remove(p.l_updating)
+                    ## are there other symlink pointing to LATEST?
+                    ## also, do not delete directory if frozen
+                    #isfrozen = os.path.isfile(os.path.join(p.d_latest, p.SGN_FROZEN))
+                    #if p.d_latest != p.d_stable and p.d_latest != p.d_previous and not isfrozen:
+                    #        shutil.rmtree(p.d_latest)
+                    #os.remove(p.l_latest)
+                    #os.symlink(p.d_updating, p.l_latest)
+                    #p.refreshlinks()
+                    #p.status = p.SGN_UPTODATE
 
                 # update stable if there is not daily update running
-                if p.status_stable == p.SGN_UPDATEME and p.status == p.SGN_UPTODATE and p.d_stable != p.d_latest:
-                    os.remove(p.l_stable)
-                    os.symlink(p.d_latest ,ldir, p.l_stable)
-                    os.remove(p.l_previous)
-                    os.symlink(p.d_stable, p.l_previous)
-                    # initial case, "previous" and "stable" are the same
-                    isfrozen = os.path.isfile(os.path.join(p.d_previous, p.SGN_FROZEN))
-                    if p.d_stable != p.d_previous and not isfrozen:
-                        shutil.rmtree(p.d_previous)
-                    p.refreshlinks()
-                    p.status_stable = p.SGN_UPTODATE
+                if p.status_stable == p.SGN_UPDATEME:
+                    p.update_db_stable()
 
                 status[p.__name__] = dict(
                     status=p.status, contact=p.contact, email=p.email)

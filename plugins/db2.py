@@ -14,16 +14,16 @@ class Plugin(baseplugin.Base):
     def __init__(self):
         baseplugin.Base.__init__(self)
 
+        # scratch, incremental, long-term
+        self.method = 'incremental'
+
         # append dependencies, ie databases that must be updated beforehand
         self.dep['db3'] = '0'
-
-        # scratch or incremental (ie, starting from last version)
-        self.method = 'incremental'
 
         # frequency for checking if updates are available
         # sec, min, hours, day of week (in cron format)
         self.freq(sec='*/20', min='*', hour='*', dow='*')
-        #self.freq_stable(sec='0', min='0', hour='*/1', dow='*')
+        self.freq_stable(sec='0', min='*/2', hour='*', dow='*')
 
         # contact name, email
         self.contact = 'Juan Perez'
