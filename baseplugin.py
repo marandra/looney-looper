@@ -115,18 +115,23 @@ class Base:
             isfrozen = os.path.isfile(os.path.join(self.d_previous, self.SGN_FROZEN))
             if self.d_stable != self.d_previous and not isfrozen:
                 shutil.rmtree(self.d_previous)
+            self.create_frozen_links()
             self.refreshlinks()
             self.status_stable = self.SGN_UPTODATE
 
     def update_db(self, wait=False):
         ''' create new directory and launch run() function in a new thread '''
-
         self.status = self.SGN_UPDATING
         timestamp = datetime.datetime.now().strftime('-%y%m%dT%H%M%S')
         self.d_updating = os.path.join(self.STORE, self.__name__ + timestamp)
-
         if self.method == 'incremental':
             shutil.copytree(self.l_latest, self.d_updating)
+            try:
+                os.remove(os.path.join(self.d_updating, self.SGN_FROZEN))
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+            
         elif self.method == 'scratch':
             os.mkdir(self.d_updating)
         os.symlink(self.d_updating, self.l_updating)
@@ -134,12 +139,11 @@ class Base:
         if not wait:
             run_thread.setDaemon(True)
         run_thread.start()
+        self.create_frozen_links()
 
     def update_links(self):
         self.refreshlinks()
         os.remove(self.l_updating)
-        # are there other symlink pointing to LATEST?
-        # also, do not delete directory if frozen
         isfrozen = os.path.isfile(os.path.join(self.d_latest, self.SGN_FROZEN))
         if self.d_latest != self.d_stable and self.d_latest != self.d_previous and not isfrozen:
                 shutil.rmtree(self.d_latest)
@@ -148,11 +152,8 @@ class Base:
         self.refreshlinks()
         self.status = self.SGN_UPTODATE
 
-
-
-
     def initial_state_clean(self, settings):
-        # Test 1: No *-updating directories
+        # Test 1: No updating or frozen links
         if os.path.exists(self.l_updating):
             raise Exception('Unclean inital state. '
                 '{} exists'.format(self.l_updating))
@@ -186,7 +187,8 @@ class Base:
                     raise
    
         # Assign links to directories
-        listing.sort()
+	listing = alldirs
+	listing.sort()
         makedirs_existsok(os.path.join(self.LINKS, self.__name__))
         # no directories, create initial structure
         if len(listing) == 0:
@@ -225,12 +227,37 @@ class Base:
                     raise
                 else:
                     os.symlink(ndir, self.l_stable)
-        if len(listing) == 3:
+        if len(listing) > 2:
             remove_nexistok(self.l_previous)
-            os.symlink(listing[0], self.l_previous)
+            os.symlink(listing[-3], self.l_previous)
             remove_nexistok(self.l_stable)
-            os.symlink(listing[1], self.l_stable)
+            os.symlink(listing[-2], self.l_stable)
             remove_nexistok(self.l_latest)
-            os.symlink(listing[2], self.l_latest)
-    
+            os.symlink(listing[-1], self.l_latest)
+
+        self.create_frozen_links()
+
+        return True
+
+    def create_frozen_links(self):
+        '''create symlinks to frozen versions'''
+
+        def remove_nexistok(filename):
+            try:
+                os.remove(filename)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+
+        l_frozen = glob.glob(os.path.join(self.LINKS, self.__name__, 'frozen-*'))
+        for lf in l_frozen:
+            remove_nexistok(lf)
+   
+        frozenpath = os.path.join(self.STORE, self.__name__ + '-*', self.SGN_FROZEN)
+        frozenflags = glob.glob(frozenpath)
+        frozendirs = [f[:-len('/' + self.SGN_FROZEN)] for f in frozenflags]
+        for fdir in frozendirs:
+            l_frozen = os.path.join(self.LINKS, self.__name__, 'frozen-' + fdir.split('-')[-1])
+            remove_nexistok(l_frozen)
+            os.symlink(fdir, l_frozen)
         return True
