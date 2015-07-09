@@ -83,24 +83,31 @@ class Base:
         self.d_previous = os.readlink(self.l_previous)
 
     def check(self, TMPPATH=None):
+        # only check if no update activity
+        if self.status != self.SGN_UPTODATE:
+            return
+        # create temporary directories
         if TMPPATH is None:
             TMPPATH=self.d_checking
         self.status = self.SGN_CHECKING
         self.logger.info(self.status)
-        try:
-            os.makedirs(TMPPATH)
-        except:
-            if not os.path.isdir(TMPPATH):
-                raise
-            else:
-                shutil.rmtree(TMPPATH)
-                os.makedirs(TMPPATH)
+        # TODO there should not be a directory previously. Leavy only TMPPATH?
+        os.makedirs(TMPPATH)
+        # try:
+        #     os.makedirs(TMPPATH)
+        # except:
+        #     if not os.path.isdir(TMPPATH):
+        #         raise
+        #     else:
+        #         shutil.rmtree(TMPPATH)
+        #         os.makedirs(TMPPATH)
 
-        if self.check_update(TMPPATH, self.l_latest):
+        updateavailable = self.check_update(TMPPATH, self.l_latest)
+        shutil.rmtree(TMPPATH)
+        if updateavailable:
             self.status = self.SGN_UPDATEME
         else:
             self.status = self.SGN_UPTODATE
-        shutil.rmtree(TMPPATH)
         self.logger.info(self.status)
         return
 
@@ -123,26 +130,29 @@ class Base:
 
     def update_db(self, wait=False):
         ''' create new directory and launch run() function in a new thread '''
-        if self.status == self.SGN_UPDATEME:
-            self.status = self.SGN_UPDATING
-            timestamp = datetime.datetime.now().strftime('-%y%m%dT%H%M%S')
-            self.d_updating = os.path.join(self.STORE, self.__name__ + timestamp)
-            if self.method == 'incremental':
-                shutil.copytree(self.l_latest, self.d_updating)
-                try:
-                    os.remove(os.path.join(self.d_updating, self.SGN_FROZEN))
-                except OSError as e:
-                    if e.errno != errno.ENOENT:
-                        raise
-                
-            elif self.method == 'scratch':
-                os.mkdir(self.d_updating)
-            os.symlink(self.d_updating, self.l_updating)
-            run_thread = threading.Thread(target=self.run, args=[self.l_updating])
-            if not wait:
-                run_thread.setDaemon(True)
-            run_thread.start()
-            self.create_frozen_links()
+        if self.status != self.SGN_UPDATEME:
+            return
+
+        self.status = self.SGN_UPDATING
+        timestamp = datetime.datetime.now().strftime('-%y%m%dT%H%M%S')
+        self.d_updating = os.path.join(self.STORE, self.__name__ + timestamp)
+        if self.method == 'incremental':
+            self.logger.debug("Copying directory for incremental update")
+            shutil.copytree(self.l_latest, self.d_updating)
+            try:
+                os.remove(os.path.join(self.d_updating, self.SGN_FROZEN))
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+            
+        elif self.method == 'scratch':
+            os.mkdir(self.d_updating)
+        os.symlink(self.d_updating, self.l_updating)
+        run_thread = threading.Thread(target=self.run, args=[self.l_updating])
+        if not wait:
+            run_thread.setDaemon(True)
+        run_thread.start()
+        self.create_frozen_links()
 
     def update_links(self):
         self.refreshlinks()
@@ -155,7 +165,7 @@ class Base:
         self.refreshlinks()
         self.status = self.SGN_UPTODATE
 
-    def initial_state_clean(self, settings):
+    def initial_state_clean(self):
         # Test 1: No updating or frozen links
         if os.path.exists(self.l_updating):
             raise Exception('Unclean inital state. '

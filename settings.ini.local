@@ -1,4 +1,0 @@
-[server]
-plugin_repo_path=%(HOME)s/Projects/switching-db/plugins
-db_link_path=%(HOME)s/import/bc2/data
-db_data_path=%(HOME)s/import/bc2/data/data

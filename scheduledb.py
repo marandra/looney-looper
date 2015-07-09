@@ -22,7 +22,7 @@ def get_settings():
     }
     try:
         settings['plugindir'] = configparser.get('server', 'plugins_path')
-        settings['links'] = configparser.get('server', 'db_links_path')
+        #settings['links'] = configparser.get('server', 'db_links_path')
         settings['store'] = configparser.get('server', 'db_store_path')
     except:
         raise
@@ -63,7 +63,7 @@ def update_status(statusdict, fname, fsched):
     return
 
 
-def register_plugins(plugindir, settings):
+def register_plugins(plugindir, store, links):
     ''' registration of plugins and scheduling of jobs ''' 
 
     plugins = map(os.path.basename, glob.glob(os.path.join(plugindir, '*.py')))
@@ -71,15 +71,15 @@ def register_plugins(plugindir, settings):
    
     instance = {}
     for e in plugins:
-        logger.info('Loading plugins: {}'.format(e))
+        logger.info('Found "{}"'.format(e))
         module = imp.load_source(e, os.path.join(plugindir, e + '.py'))
         instance[e] = module.create()
         #instance[e].__name__ = os.path.splitext(os.path.basename(module.__file__))[0]
-        instance[e].init(e, store=settings['store'], links=settings['links'])
+        instance[e].init(e, store=store, links=links)
 
         # check start up state
         try:
-            instance[e].initial_state_clean(settings)
+            instance[e].initial_state_clean()
         except:
            raise
 
@@ -96,7 +96,28 @@ def register_plugins(plugindir, settings):
 
     return instance
 
-
+def signal_handling(plugins):
+    fnsignal = 'signal'
+    try:
+        with open(fnsignal, 'r') as f:
+            line = f.readline()
+        if 'stop' in line:
+            os.remove(fnsignal)
+            raise Exception("Received 'stop' signal")
+        elif 'checknow' in line.split():
+            os.remove(fnsignal)
+            pname = line.split()[0]
+            if pname in plugins:
+                logger.info('Signal-triggered "{}" checking'.format(pname))
+                plugins[pname].check()
+        else:
+            return
+    except IOError, e:
+        if e.errno == 2:
+            pass
+        else:
+            raise
+    return
 #######################################################################
 # main
 if __name__ == "__main__":
@@ -106,22 +127,26 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     scheduler = BackgroundScheduler()
 
+    # set up paths
+    plugindir = '../.plugins'
+    store = '../store'
+    links = '..'
+
     # set up options
-    plugindir = get_settings()['plugindir']
-    store = get_settings()['store']
-    links = get_settings()['links']
+    refreshtime = 1
 
     try:
         # initialization. registration of plugins
         logger.info('Started')
         scheduler.start()
-        plugins = register_plugins(plugindir, get_settings())
+        plugins = register_plugins(plugindir, store, links)
 
         while True:
-            time.sleep(1)
+            time.sleep(refreshtime)
             with open('schedulerjobs.log', 'w') as fo:
                 scheduler.print_jobs(out=fo)
             status = {}
+
             for name, p in plugins.items():
 
                 # there is a db to update
@@ -140,6 +165,8 @@ if __name__ == "__main__":
                     status=p.status, contact=p.contact, email=p.email)
 
             update_status(status, 'status.log', 'schedulerjobs.log')
+
+            signal_handling(plugins)
 
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()

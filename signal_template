@@ -1,0 +1,6 @@
+
+# If there is a valid keyword in the first linei, it will be executed
+# and "signal" file removed afterwards
+# Examples
+stop
+pluginname checknow

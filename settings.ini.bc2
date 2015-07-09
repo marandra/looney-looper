@@ -1,4 +1,0 @@
-[server]
-plugins_path=/import/bc2/data/test/plugins
-db_links_path=/import/bc2/data/test
-db_store_path=/import/bc2/data/test/store
