@@ -22,7 +22,6 @@ def get_settings():
     }
     try:
         settings['plugindir'] = configparser.get('server', 'plugins_path')
-        #settings['links'] = configparser.get('server', 'db_links_path')
         settings['store'] = configparser.get('server', 'db_store_path')
     except:
         raise
@@ -64,37 +63,44 @@ def update_status(statusdict, fname, fsched):
 
 
 def register_plugins(plugindir, store, links):
-    ''' registration of plugins and scheduling of jobs ''' 
+    ''' registration of plugins and scheduling of jobs '''
 
     plugins = map(os.path.basename, glob.glob(os.path.join(plugindir, '*.py')))
     plugins = [p[:-3] for p in plugins]
-   
+
     instance = {}
     for e in plugins:
         logger.info('Found "{}"'.format(e))
         module = imp.load_source(e, os.path.join(plugindir, e + '.py'))
         instance[e] = module.create()
-        #instance[e].__name__ = os.path.splitext(os.path.basename(module.__file__))[0]
         instance[e].init(e, store=store, links=links)
 
         # check start up state
         try:
             instance[e].initial_state_clean()
         except:
-           raise
+            raise
 
         # register jobs (daily and stable)
         scheduler.add_job(
             instance[e].check, 'cron', args=[], name=e,
-            day_of_week=instance[e].day_of_week, hour=instance[e].hour,
-            day=instance[e].day, minute=instance[e].minute, second=instance[e].second)
+            day_of_week=instance[e].day_of_week,
+            hour=instance[e].hour,
+            day=instance[e].day,
+            minute=instance[e].minute,
+            second=instance[e].second)
         if instance[e].UPDATE_STABLE:
             scheduler.add_job(
-                instance[e].check_update_stable, 'cron', args=[], name='{}-stable'.format(e),
-                day_of_week=instance[e].stable_day_of_week, hour=instance[e].stable_hour,
-                day=instance[e].stable_day, minute=instance[e].stable_minute, second=instance[e].stable_second)
+                instance[e].check_update_stable, 'cron', args=[],
+                name='{}-stable'.format(e),
+                day_of_week=instance[e].stable_day_of_week,
+                hour=instance[e].stable_hour,
+                day=instance[e].stable_day,
+                minute=instance[e].stable_minute,
+                second=instance[e].stable_second)
 
     return instance
+
 
 def signal_handling(plugins):
     fnsignal = 'signal'

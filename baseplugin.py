@@ -21,7 +21,7 @@ class Base:
         self.__name__ = name
         self.logger = logging.getLogger(self.__name__)
 
-        #inital checks
+        # inital checks
         if self.method != 'scratch' and self.method != 'incremental':
             raise Exception('Update method not recognized')
 
@@ -41,26 +41,33 @@ class Base:
         self.LINKS = links
         self.status = self.SGN_UPTODATE
         self.status_stable = self.SGN_UPTODATE
-        self.l_latest = os.path.join(self.LINKS, self.__name__, self.SGN_LATEST)
-        self.l_stable = os.path.join(self.LINKS, self.__name__, self.SGN_STABLE)
-        self.l_previous = os.path.join(self.LINKS, self.__name__, self.SGN_PREVIOUS)
-        self.l_updating = os.path.join(self.STORE, '{}-{}'.format(self.__name__, self.SGN_UPDATING))
+        self.l_latest = os.path.join(self.LINKS,
+                                     self.__name__,
+                                     self.SGN_LATEST)
+        self.l_stable = os.path.join(self.LINKS,
+                                     self.__name__,
+                                     self.SGN_STABLE)
+        self.l_previous = os.path.join(self.LINKS,
+                                       self.__name__,
+                                       self.SGN_PREVIOUS)
+        self.l_updating = os.path.join(self.STORE,
+                                       '{}-{}'.format(self.__name__,
+                                                      self.SGN_UPDATING))
         self.d_latest = ''
         self.d_stable = ''
         self.d_previous = ''
         self.d_updating = ''
-        self.d_checking = os.path.join(self.STORE, '{}-{}'.format(self.__name__, self.SGN_CHECKING))
+        self.d_checking = os.path.join(self.STORE,
+                                       '{}-{}'.format(self.__name__,
+                                                      self.SGN_CHECKING))
 
     def check_update(self, a, b):
         raise Exception('NotImplemented. '
-            'The method needs to be implemented in subclasses')
-
-    def run(self, a, b):
-        raise Exception('NotImplemented. '
-            'The method needs to be implemented in subclasses')
+                        'The method needs to be implemented in subclasses')
 
     def freq(self, sec=None, min=None, hour=None, day=None, dow=None):
-        if sec is None and min is None and hour is None and day is None and dow is None:
+        if sec is None and min is None and hour is None and day is None\
+           and dow is None:
             raise Exception("No update frequency provided")
         self.second = sec
         self.minute = min
@@ -74,7 +81,8 @@ class Base:
         self.stable_hour = hour
         self.stable_day = day
         self.stable_day_of_week = dow
-        if sec is not None or min is not None or hour is not None or day is not None or dow is not None:
+        if sec is not None or min is not None or hour is not None or\
+           day is not None or dow is not None:
             self.UPDATE_STABLE = True
 
     def refreshlinks(self):
@@ -88,7 +96,7 @@ class Base:
             return
         # create temporary directories
         if TMPPATH is None:
-            TMPPATH=self.d_checking
+            TMPPATH = self.d_checking
         self.status = self.SGN_CHECKING
         self.logger.info(self.status)
         # TODO there should not be a directory previously. Leavy only TMPPATH?
@@ -117,16 +125,28 @@ class Base:
     def update_db_stable(self):
         if self.status == self.SGN_UPTODATE and self.d_stable != self.d_latest:
             os.remove(self.l_stable)
-            os.symlink(self.d_latest , self.l_stable)
+            os.symlink(self.d_latest, self.l_stable)
             os.remove(self.l_previous)
             os.symlink(self.d_stable, self.l_previous)
             # initial case, "previous" and "stable" are the same
-            isfrozen = os.path.isfile(os.path.join(self.d_previous, self.SGN_FROZEN))
+            isfrozen = os.path.isfile(os.path.join(self.d_previous,
+                                                   self.SGN_FROZEN))
             if self.d_stable != self.d_previous and not isfrozen:
                 shutil.rmtree(self.d_previous)
             self.create_frozen_links()
             self.refreshlinks()
             self.status_stable = self.SGN_UPTODATE
+
+    def update(self, path):
+        raise Exception('NotImplemented. '
+                        'The method needs to be implemented in subclasses')
+
+    def run(self, path):
+        self.update(path)
+        self.logger.debug('STATUS: {}'.format(self.status))
+        self.status = self.SGN_FINISHED
+        self.logger.debug('STATUS: {}'.format(self.status))
+        self.create_frozen_links()
 
     def update_db(self, wait=False):
         ''' create new directory and launch run() function in a new thread '''
@@ -144,7 +164,7 @@ class Base:
             except OSError as e:
                 if e.errno != errno.ENOENT:
                     raise
-            
+
         elif self.method == 'scratch':
             os.mkdir(self.d_updating)
         os.symlink(self.d_updating, self.l_updating)
@@ -152,13 +172,13 @@ class Base:
         if not wait:
             run_thread.setDaemon(True)
         run_thread.start()
-        self.create_frozen_links()
 
     def update_links(self):
         self.refreshlinks()
         os.remove(self.l_updating)
         isfrozen = os.path.isfile(os.path.join(self.d_latest, self.SGN_FROZEN))
-        if self.d_latest != self.d_stable and self.d_latest != self.d_previous and not isfrozen:
+        if self.d_latest != self.d_stable and self.d_latest != self.d_previous\
+           and not isfrozen:
                 shutil.rmtree(self.d_latest)
         os.remove(self.l_latest)
         os.symlink(self.d_updating, self.l_latest)
@@ -169,21 +189,23 @@ class Base:
         # Test 1: No updating or frozen links
         if os.path.exists(self.l_updating):
             raise Exception('Unclean inital state. '
-                '{} exists'.format(self.l_updating))
+                            '{} exists'.format(self.l_updating))
         if os.path.exists(self.d_checking):
             raise Exception('Unclean inital state. '
-                '{} exists'.format(self.d_checking))
-    
+                            '{} exists'.format(self.d_checking))
+
         # Test 2: No more that 3 not-frozen directories
         pathdirs = os.path.join(self.STORE, self.__name__ + '-*')
         alldirs = glob.glob(pathdirs)
-        frozenpath = os.path.join(self.STORE, self.__name__ + '-*', self.SGN_FROZEN)
+        frozenpath = os.path.join(self.STORE, self.__name__ + '-*',
+                                  self.SGN_FROZEN)
         frozenflags = glob.glob(frozenpath)
         frozendirs = [f[:-len('/' + self.SGN_FROZEN)] for f in frozenflags]
         listing = list(set(alldirs) - set(frozendirs))
         if len(listing) > 3:
             raise Exception('Unclean inital state. '
-                'More than 3 non-frozen versions: {}'.format(pathdirs))
+                            'More than 3 non-frozen versions: '
+                            '{}'.format(pathdirs))
 
         def makedirs_existsok(path):
             try:
@@ -191,17 +213,17 @@ class Base:
             except:
                 if not os.path.isdir(path):
                     raise
-    
+
         def remove_nexistok(filename):
             try:
                 os.remove(filename)
             except OSError as e:
                 if e.errno != errno.ENOENT:
                     raise
-   
+
         # Assign links to directories
-	listing = alldirs
-	listing.sort()
+        listing = alldirs
+        listing.sort()
         makedirs_existsok(os.path.join(self.LINKS, self.__name__))
         # no directories, create initial structure
         if len(listing) == 0:
@@ -262,15 +284,18 @@ class Base:
                 if e.errno != errno.ENOENT:
                     raise
 
-        l_frozen = glob.glob(os.path.join(self.LINKS, self.__name__, 'frozen-*'))
+        l_frozen = glob.glob(os.path.join(self.LINKS,
+                                          self.__name__, 'frozen-*'))
         for lf in l_frozen:
             remove_nexistok(lf)
-   
-        frozenpath = os.path.join(self.STORE, self.__name__ + '-*', self.SGN_FROZEN)
+
+        frozenpath = os.path.join(self.STORE,
+                                  self.__name__ + '-*', self.SGN_FROZEN)
         frozenflags = glob.glob(frozenpath)
         frozendirs = [f[:-len('/' + self.SGN_FROZEN)] for f in frozenflags]
         for fdir in frozendirs:
-            l_frozen = os.path.join(self.LINKS, self.__name__, 'frozen-' + fdir.split('-')[-1])
+            l_frozen = os.path.join(self.LINKS, self.__name__,
+                                    'frozen-' + fdir.split('-')[-1])
             remove_nexistok(l_frozen)
             os.symlink(fdir, l_frozen)
         return True
