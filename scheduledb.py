@@ -1,6 +1,5 @@
 #!/usr/bin/env python2.7
 
-import ConfigParser
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 import time
@@ -12,21 +11,7 @@ import glob
 import threading
 import imp
 import errno
-
-
-def get_settings():
-    configparser = ConfigParser.SafeConfigParser(os.environ)
-    configparser.read("./settings.ini")
-    settings = {
-        'log_file': "default.log",
-    }
-    try:
-        settings['plugindir'] = configparser.get('server', 'plugins_path')
-        settings['store'] = configparser.get('server', 'db_store_path')
-    except:
-        raise
-
-    return settings
+import fysom
 
 
 def update_status(statusdict, fname, fsched):
@@ -62,6 +47,24 @@ def update_status(statusdict, fname, fsched):
     return
 
 
+def schedule_plugins(plugins):
+    ''' scheduling of jobs '''
+
+    for name, p in plugins.items():
+        # register jobs (daily and stable)
+        scheduler.add_job(
+            p.state.checkifupdate, 'cron', name=name,
+            day_of_week=p.day_of_week, hour=p.hour,
+            day=p.day, minute=p.minute, second=p.second)
+        if p.UPDATE_STABLE:
+            scheduler.add_job(
+                p.check_update_stable, 'cron', args=[],
+                name='{}-stable'.format(name),
+                day_of_week=p.stable_day_of_week, hour=p.stable_hour,
+                day=p.stable_day, minute=p.stable_minute,
+                second=p.stable_second)
+
+
 def register_plugins(plugindir, store, links):
     ''' registration of plugins and scheduling of jobs '''
 
@@ -80,26 +83,34 @@ def register_plugins(plugindir, store, links):
             instance[e].initial_state_clean()
         except:
             raise
-
-        # register jobs (daily and stable)
-        scheduler.add_job(
-            instance[e].check, 'cron', args=[], name=e,
-            day_of_week=instance[e].day_of_week,
-            hour=instance[e].hour,
-            day=instance[e].day,
-            minute=instance[e].minute,
-            second=instance[e].second)
-        if instance[e].UPDATE_STABLE:
-            scheduler.add_job(
-                instance[e].check_update_stable, 'cron', args=[],
-                name='{}-stable'.format(e),
-                day_of_week=instance[e].stable_day_of_week,
-                hour=instance[e].stable_hour,
-                day=instance[e].stable_day,
-                minute=instance[e].stable_minute,
-                second=instance[e].stable_second)
-
     return instance
+
+
+def apply_statemachines(plugins):
+    ''' states and trasnitions for state machine '''
+
+    initstate = 'up_to_date'
+    events = [
+       {'name': 'checkifupdate', 'src': 'up_to_date', 'dst': 'checking'},
+       {'name': 'nonews', 'src': 'checking', 'dst': 'up_to_date'},
+       {'name': 'doupdate', 'src': 'checking', 'dst': 'updating'},
+       {'name': 'redoupdate', 'src': 'failed_update', 'dst': 'updating'},
+       {'name': 'finished', 'src': 'updating', 'dst': 'up_to_date'},
+       {'name': 'notfinished', 'src': 'updating', 'dst': 'failed_update'},
+    ]
+
+    for name, p in plugins.items():
+        callback = {
+            'oncheckifupdate': p.check,
+            'ondoupdate': p.update_db,
+            'onfinished': p.update_links,
+        }
+
+        p.state = fysom.Fysom({'initial': initstate,
+                               'events': events,
+                               'callbacks': callback })
+        p.state.onchangestate = p.logstate
+    return 
 
 
 def signal_handling(plugins):
@@ -141,11 +152,14 @@ if __name__ == "__main__":
     # set up options
     refreshtime = 1
 
+
     try:
-        # initialization. registration of plugins
+        # initialization
         logger.info('Started')
         scheduler.start()
         plugins = register_plugins(plugindir, store, links)
+        machines = apply_statemachines(plugins)
+        schedule_plugins(plugins)
 
         while True:
             time.sleep(refreshtime)
@@ -155,13 +169,10 @@ if __name__ == "__main__":
 
             for name, p in plugins.items():
 
-                # there is a db to update
-                if p.status == p.SGN_UPDATEME:
-                    p.update_db()
-
-                # finished downloading: rm directory, update symlinks
-                if p.status == p.SGN_FINISHED:
-                    p.update_links()
+                # this state should only be after a failed update, let's try again
+                if p.state.isstate('failed_update'):
+                    p.logger.info('Retrying update')
+                    p.state.redoupdate()
 
                 # update stable if there is not daily update running
                 if p.status_stable == p.SGN_UPDATEME:

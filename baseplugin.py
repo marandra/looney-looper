@@ -5,7 +5,8 @@ import shutil
 import threading
 import glob
 import errno
-
+import transitions
+import time
 
 # class Base(object):
 class Base:
@@ -16,6 +17,20 @@ class Base:
         self.email = ''
         self.dep = {}
         self.UPDATE_STABLE = False
+        self.state = ''
+
+    def logstate(self, e):
+        self.logger.debug('Current state: ' + e.dst) 
+
+    def onupdating(self, e):
+        time.sleep(2)
+        self.state.notfinished()
+
+    def onreupdating(self, e):
+        time.sleep(2)
+        self.state.finished()
+
+
 
     def init(self, name, store='INIT_ME', links='INIT_ME'):
         self.__name__ = name
@@ -90,24 +105,15 @@ class Base:
         self.d_stable = os.readlink(self.l_stable)
         self.d_previous = os.readlink(self.l_previous)
 
-    def check(self, TMPPATH=None):
-        # only check if no update activity
-        if self.status != self.SGN_UPTODATE:
-            return
-        # create temporary directories
-        if TMPPATH is None:
-            TMPPATH = self.d_checking
-        self.status = self.SGN_CHECKING
-        self.logger.debug(self.status)
+    def check(self, e):
+        TMPPATH = self.d_checking
         os.makedirs(TMPPATH)
         updateavailable = self.check_update(TMPPATH, self.l_latest)
         shutil.rmtree(TMPPATH)
         if updateavailable:
-            self.status = self.SGN_UPDATEME
-            self.logger.debug(self.status)
+            self.state.doupdate()
         else:
-            self.status = self.SGN_UPTODATE
-            self.logger.debug(self.status)
+            self.state.nonews()
         return
 
     def check_update_stable(self):
@@ -133,20 +139,17 @@ class Base:
                         'The method needs to be implemented in subclasses')
 
     def run(self, path):
-        self.update(path)
-        self.status = self.SGN_FINISHED
-        self.logger.debug(self.status)
-        self.create_frozen_links()
+        if not self.update(path):
+            self.state.finished()
+        else:
+            self.state.notfinished()
 
-    def update_db(self, wait=False):
+    def update_db(self, esm):
         ''' create new directory and launch run() function in a new thread '''
-        if self.status != self.SGN_UPDATEME:
-            return
-
-        self.status = self.SGN_UPDATING
-        self.logger.debug(self.status)
+        wait = False
         timestamp = datetime.datetime.now().strftime('-%y%m%dT%H%M%S')
         self.d_updating = os.path.join(self.STORE, self.__name__ + timestamp)
+
         if self.method == 'incremental':
             self.logger.debug("Copying directory for incremental update")
             shutil.copytree(self.l_latest, self.d_updating)
@@ -155,16 +158,16 @@ class Base:
             except OSError as e:
                 if e.errno != errno.ENOENT:
                     raise
-
         elif self.method == 'scratch':
             os.mkdir(self.d_updating)
+
         os.symlink(self.d_updating, self.l_updating)
         run_thread = threading.Thread(target=self.run, args=[self.l_updating])
         if not wait:
             run_thread.setDaemon(True)
         run_thread.start()
 
-    def update_links(self):
+    def update_links(self, e):
         self.refreshlinks()
         os.remove(self.l_updating)
         isfrozen = os.path.isfile(os.path.join(self.d_latest, self.SGN_FROZEN))
@@ -174,8 +177,9 @@ class Base:
         os.remove(self.l_latest)
         os.symlink(self.d_updating, self.l_latest)
         self.refreshlinks()
-        self.status = self.SGN_UPTODATE
-        self.logger.debug(self.status)
+
+        # TODO: check that the following is ok:
+        self.create_frozen_links()
 
     def initial_state_clean(self):
         # Test 1: No updating or frozen links
