@@ -98,25 +98,16 @@ class Base:
         if TMPPATH is None:
             TMPPATH = self.d_checking
         self.status = self.SGN_CHECKING
-        self.logger.info(self.status)
-        # TODO there should not be a directory previously. Leavy only TMPPATH?
+        self.logger.debug(self.status)
         os.makedirs(TMPPATH)
-        # try:
-        #     os.makedirs(TMPPATH)
-        # except:
-        #     if not os.path.isdir(TMPPATH):
-        #         raise
-        #     else:
-        #         shutil.rmtree(TMPPATH)
-        #         os.makedirs(TMPPATH)
-
         updateavailable = self.check_update(TMPPATH, self.l_latest)
         shutil.rmtree(TMPPATH)
         if updateavailable:
             self.status = self.SGN_UPDATEME
+            self.logger.debug(self.status)
         else:
             self.status = self.SGN_UPTODATE
-        self.logger.info(self.status)
+            self.logger.debug(self.status)
         return
 
     def check_update_stable(self):
@@ -143,9 +134,8 @@ class Base:
 
     def run(self, path):
         self.update(path)
-        self.logger.debug('STATUS: {}'.format(self.status))
         self.status = self.SGN_FINISHED
-        self.logger.debug('STATUS: {}'.format(self.status))
+        self.logger.debug(self.status)
         self.create_frozen_links()
 
     def update_db(self, wait=False):
@@ -154,6 +144,7 @@ class Base:
             return
 
         self.status = self.SGN_UPDATING
+        self.logger.debug(self.status)
         timestamp = datetime.datetime.now().strftime('-%y%m%dT%H%M%S')
         self.d_updating = os.path.join(self.STORE, self.__name__ + timestamp)
         if self.method == 'incremental':
@@ -184,6 +175,7 @@ class Base:
         os.symlink(self.d_updating, self.l_latest)
         self.refreshlinks()
         self.status = self.SGN_UPTODATE
+        self.logger.debug(self.status)
 
     def initial_state_clean(self):
         # Test 1: No updating or frozen links
