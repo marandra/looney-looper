@@ -20,7 +20,7 @@ class Base:
         self.state = ''
 
     def logstate(self, e):
-        self.logger.debug('Current state: ' + e.dst) 
+        self.logger.info('Current state: ' + e.dst) 
 
     def onupdating(self, e):
         time.sleep(2)

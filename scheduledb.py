@@ -101,15 +101,15 @@ def apply_statemachines(plugins):
 
     for name, p in plugins.items():
         callback = {
-            'oncheckifupdate': p.check,
-            'ondoupdate': p.update_db,
-            'onfinished': p.update_links,
+            'onaftercheckifupdate': p.check,
+            'onafterdoupdate': p.update_db,
+            'onbeforefinished': p.update_links,
+            'onchangestate': p.logstate,
         }
 
         p.state = fysom.Fysom({'initial': initstate,
                                'events': events,
                                'callbacks': callback })
-        p.state.onchangestate = p.logstate
     return 
 
 
