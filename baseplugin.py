@@ -17,20 +17,9 @@ class Base:
         self.email = ''
         self.dep = {}
         self.UPDATE_STABLE = False
-        self.state = ''
 
     def logstate(self, e):
         self.logger.info('Current state: ' + e.dst) 
-
-    def onupdating(self, e):
-        time.sleep(2)
-        self.state.notfinished()
-
-    def onreupdating(self, e):
-        time.sleep(2)
-        self.state.finished()
-
-
 
     def init(self, name, store='INIT_ME', links='INIT_ME'):
         self.__name__ = name
@@ -41,11 +30,6 @@ class Base:
             raise Exception('Update method not recognized')
 
         # runtime constants
-        self.SGN_FINISHED = 'update_finished'
-        self.SGN_UPDATING = 'updating'
-        self.SGN_UPTODATE = 'up_to_date'
-        self.SGN_UPDATEME = 'update_me'
-        self.SGN_CHECKING = 'checking'
         self.SGN_FROZEN = 'FROZEN_VERSION'
         self.SGN_LATEST = 'latest'
         self.SGN_STABLE = 'stable'
@@ -54,8 +38,6 @@ class Base:
         # runtime variables
         self.STORE = store
         self.LINKS = links
-        self.status = self.SGN_UPTODATE
-        self.status_stable = self.SGN_UPTODATE
         self.l_latest = os.path.join(self.LINKS,
                                      self.__name__,
                                      self.SGN_LATEST)
@@ -66,39 +48,22 @@ class Base:
                                        self.__name__,
                                        self.SGN_PREVIOUS)
         self.l_updating = os.path.join(self.STORE,
-                                       '{}-{}'.format(self.__name__,
-                                                      self.SGN_UPDATING))
+                                       '{}-{}'.format(self.__name__, 'updating'))
         self.d_latest = ''
         self.d_stable = ''
         self.d_previous = ''
         self.d_updating = ''
         self.d_checking = os.path.join(self.STORE,
-                                       '{}-{}'.format(self.__name__,
-                                                      self.SGN_CHECKING))
-
-    def check_update(self, a, b):
-        raise Exception('NotImplemented. '
-                        'The method needs to be implemented in subclasses')
+                                       '{}-{}'.format(self.__name__, 'checking'))
 
     def freq(self, sec=None, min=None, hour=None, day=None, dow=None):
-        if sec is None and min is None and hour is None and day is None\
-           and dow is None:
+        if not any([sec, min, hour, day, dow]):
             raise Exception("No update frequency provided")
-        self.second = sec
-        self.minute = min
-        self.hour = hour
-        self.day = day
-        self.day_of_week = dow
+        self.s, self.m, self.h, self.d, self.dow = sec, min, hour, day, dow
 
     def freq_stable(self, sec=None, min=None, hour=None, day=None, dow=None):
-        self.stable_second = sec
-        self.stable_minute = min
-        self.stable_hour = hour
-        self.stable_day = day
-        self.stable_day_of_week = dow
-        if sec is not None or min is not None or hour is not None or\
-           day is not None or dow is not None:
-            self.UPDATE_STABLE = True
+        self.UPDATE_STABLE = any([sec, min, hour, day, dow])
+        self.ss, self.sm, self.sh, self.sd, self.sdow = sec, min, hour, day, dow
 
     def refreshlinks(self, e=None):
         self.d_latest = os.readlink(self.l_latest)
@@ -116,14 +81,13 @@ class Base:
             self.state.nonews()
         return
 
-    def check_update_db_stable(self, e=None):
-        if not self.state.isstate('up_to_date'):
-            self.stablestate.notfinished()
-        else:
+    def check_stable(self, e=None):
+        if self.state.isstate('up_to_date'):
             self.stablestate.doupdate()
+        else:
+            self.stablestate.notfinished()
 
     def update_db_stable(self, e):
-
         if self.d_stable != self.d_latest:
             os.remove(self.l_stable)
             os.symlink(self.d_latest, self.l_stable)
@@ -135,10 +99,6 @@ class Base:
             if self.d_stable != self.d_previous and not isfrozen:
                 shutil.rmtree(self.d_previous)
         self.stablestate.finished()
-
-    def update(self, path):
-        raise Exception('NotImplemented. '
-                        'The method needs to be implemented in subclasses')
 
     def run(self, path):
         if not self.update(path):
@@ -297,3 +257,12 @@ class Base:
             remove_nexistok(l_frozen)
             os.symlink(fdir, l_frozen)
         return True
+
+    def check_update(self, a, b):
+        raise Exception('NotImplemented. '
+                        'The method needs to be implemented in subclasses')
+
+    def update(self, path):
+        raise Exception('NotImplemented. '
+                        'The method needs to be implemented in subclasses')
+

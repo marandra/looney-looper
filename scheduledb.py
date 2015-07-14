@@ -54,13 +54,11 @@ def schedule_plugins(plugins):
         # register jobs (daily and stable)
         scheduler.add_job(
             p.state.checkifupdate, 'cron', name=name,
-            day_of_week=p.day_of_week, hour=p.hour,
-            day=p.day, minute=p.minute, second=p.second)
+            day_of_week=p.dow, hour=p.h, day=p.d, minute=p.m, second=p.s)
         if p.UPDATE_STABLE:
             scheduler.add_job(
                 p.stablestate.checkifupdate, 'cron', name='{}-stable'.format(name),
-                day_of_week=p.stable_day_of_week, hour=p.stable_hour,
-                day=p.stable_day, minute=p.stable_minute, second=p.stable_second)
+                day_of_week=p.sdow, hour=p.sh, day=p.sd, minute=p.sm, second=p.ss)
 
 
 def register_plugins(plugindir, store, links):
@@ -120,7 +118,7 @@ def apply_statemachines(plugins):
 
     for name, p in plugins.items():
         callback = {
-            'onaftercheckifupdate': p.check_update_db_stable,
+            'onaftercheckifupdate': p.check_stable,
             'onafterdoupdate': p.update_db_stable,
             'onbeforefinished': p.refreshlinks,
             'onchangestate': p.logstate,
@@ -171,7 +169,6 @@ if __name__ == "__main__":
     # set up options
     refreshtime = 4
 
-
     try:
         # initialization
         logger.info('Started')
@@ -197,7 +194,7 @@ if __name__ == "__main__":
                     p.stablestate.checkifupdate()
 
                 status[p.__name__] = dict(
-                    status=p.status, contact=p.contact, email=p.email)
+                    status=p.state.current, contact=p.contact, email=p.email)
 
             update_status(status, 'status.log', 'schedulerjobs.log')
 
