@@ -100,12 +100,12 @@ class Base:
            day is not None or dow is not None:
             self.UPDATE_STABLE = True
 
-    def refreshlinks(self):
+    def refreshlinks(self, e=None):
         self.d_latest = os.readlink(self.l_latest)
         self.d_stable = os.readlink(self.l_stable)
         self.d_previous = os.readlink(self.l_previous)
 
-    def check(self, e):
+    def check(self, e=None):
         TMPPATH = self.d_checking
         os.makedirs(TMPPATH)
         updateavailable = self.check_update(TMPPATH, self.l_latest)
@@ -116,11 +116,15 @@ class Base:
             self.state.nonews()
         return
 
-    def check_update_stable(self):
-        self.status_stable = self.SGN_UPDATEME
+    def check_update_db_stable(self, e=None):
+        if not self.state.isstate('up_to_date'):
+            self.stablestate.notfinished()
+        else:
+            self.stablestate.doupdate()
 
-    def update_db_stable(self):
-        if self.status == self.SGN_UPTODATE and self.d_stable != self.d_latest:
+    def update_db_stable(self, e):
+
+        if self.d_stable != self.d_latest:
             os.remove(self.l_stable)
             os.symlink(self.d_latest, self.l_stable)
             os.remove(self.l_previous)
@@ -130,9 +134,7 @@ class Base:
                                                    self.SGN_FROZEN))
             if self.d_stable != self.d_previous and not isfrozen:
                 shutil.rmtree(self.d_previous)
-            self.create_frozen_links()
-            self.refreshlinks()
-            self.status_stable = self.SGN_UPTODATE
+        self.stablestate.finished()
 
     def update(self, path):
         raise Exception('NotImplemented. '
