@@ -98,7 +98,7 @@ def apply_statemachines(plugins):
     for name, p in plugins.items():
         callback = {
             'onaftercheckifupdate': p.check,
-            'onafterdoupdate': p.update_db,
+            'onafterdoupdate': p.updatedb,
             'onbeforefinished': p.update_links,
             'onchangestate': p.logstate,
         }
