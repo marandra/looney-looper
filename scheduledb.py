@@ -55,10 +55,10 @@ def schedule_plugins(plugins):
         scheduler.add_job(
             p.state.checkifupdate, 'cron', name=name,
             day_of_week=p.dow, hour=p.h, day=p.d, minute=p.m, second=p.s)
-        if p.UPDATE_STABLE:
-            scheduler.add_job(
-                p.stablestate.checkifupdate, 'cron', name='{}-stable'.format(name),
-                day_of_week=p.sdow, hour=p.sh, day=p.sd, minute=p.sm, second=p.ss)
+        #if p.UPDATE_STABLE:
+        #    scheduler.add_job(
+        #        p.stablestate.checkifupdate, 'cron', name='{}-stable'.format(name),
+        #        day_of_week=p.sdow, hour=p.sh, day=p.sd, minute=p.sm, second=p.ss)
 
 
 def register_plugins(plugindir, store, links):
@@ -107,27 +107,27 @@ def apply_statemachines(plugins):
                                'callbacks': callback })
 
     #state machine for stable links
-    initstate = 'up_to_date'
-    events = [
-       {'name': 'checkifupdate', 'src': 'up_to_date', 'dst': 'checking'},
-       {'name': 'checkifupdate', 'src': 'failed_update', 'dst': 'checking'},
-       {'name': 'doupdate', 'src': 'checking', 'dst': 'updating'},
-       {'name': 'finished', 'src': 'updating', 'dst': 'up_to_date'},
-       {'name': 'notfinished', 'src': 'checking', 'dst': 'failed_update'},
-    ]
+    #initstate = 'up_to_date'
+    #events = [
+    #   {'name': 'checkifupdate', 'src': 'up_to_date', 'dst': 'checking'},
+    #   {'name': 'checkifupdate', 'src': 'failed_update', 'dst': 'checking'},
+    #   {'name': 'doupdate', 'src': 'checking', 'dst': 'updating'},
+    #   {'name': 'finished', 'src': 'updating', 'dst': 'up_to_date'},
+    #   {'name': 'notfinished', 'src': 'checking', 'dst': 'failed_update'},
+    #]
 
-    for name, p in plugins.items():
-        callback = {
-            'onaftercheckifupdate': p.check_stable,
-            'onafterdoupdate': p.update_db_stable,
-            'onbeforefinished': p.refreshlinks,
-            'onchangestate': p.logstate,
-        }
-        p.stablestate = fysom.Fysom({'initial': initstate,
-                                     'events': events,
-                                     'callbacks': callback })
-      
-    return 
+    #for name, p in plugins.items():
+    #    callback = {
+    #        'onaftercheckifupdate': p.check_stable,
+    #        'onafterdoupdate': p.update_db_stable,
+    #        'onbeforefinished': p.refreshlinks,
+    #        'onchangestate': p.logstate,
+    #    }
+    #    p.stablestate = fysom.Fysom({'initial': initstate,
+    #                                 'events': events,
+    #                                 'callbacks': callback })
+    #  
+    #return 
 
 
 def signal_handling(plugins):
@@ -189,9 +189,9 @@ if __name__ == "__main__":
                 if p.state.isstate('failed_update'):
                     p.logger.info('Retrying update')
                     p.state.doupdate()
-                if p.stablestate.isstate('sfailed_update'):
-                    p.logger.info('Retrying update')
-                    p.stablestate.checkifupdate()
+                #if p.stablestate.isstate('sfailed_update'):
+                #    p.logger.info('Retrying update')
+                #    p.stablestate.checkifupdate()
 
                 status[p.__name__] = dict(
                     status=p.state.current, contact=p.contact, email=p.email)
