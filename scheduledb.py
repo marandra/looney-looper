@@ -13,38 +13,19 @@ import imp
 import errno
 import fysom
 
-
-def update_status(statusdict, fname, fsched):
+def update_status2(status, fname):
     # header
-    fo = open(fname, 'w')
-    fs = open(fsched, 'r')
-    timestr = time.strftime("%d %b %Y %H:%M:%S", time.localtime())
-    line = []
-    line.append('BC2 Data    {}\n'.format(timestr))
-    line.append('Live data directory: /import/bc2/data/test\n\n')
-    line.append('{:<21s}{:<13s}{:<27s}{:<s}\n\n'.format(
-        'Target', 'Status', 'Next check', 'Contact'))
-    fo.write(''.join(line))
-    # jobs
-    firstline = True
-    for job in fs:
-        if firstline:
-            firstline = False
-            continue
-        dbname = job.split()[0]
-        contact = statusdict[dbname.split('-stable')[0]]['contact']
-        email = statusdict[dbname.split('-stable')[0]]['email']
-        nextupdate = ' '.join(job.split()[9:12])[:-1]
-        if not dbname.split('-')[-1] == 'stable':
-            status = statusdict[dbname]['status']
-        else:
-            status = 'up_to_date'
-        line = '{:<21s}{:<13s}{:<27s}{:<s}\n'.format(
-            dbname, status, nextupdate, contact + ' (' + email + ')')
-        fo.write(line)
-    fo.close()
-    fs.close()
-    return
+    with open(fname, 'w') as fo:
+        timestr = time.strftime("%d %b %Y %H:%M:%S", time.localtime())
+        line = []
+        line.append('BC2 Data    {}\n'.format(timestr))
+        line.append('Live data directory: /import/bc2/data/test\n\n')
+        line.append('{:<21s}{:<13s}{:<27s}{:<s}\n\n'.format(
+            'Target', 'Status', 'Next check', 'Contact'))
+        fo.write(''.join(line))
+
+        for line in status:
+            fo.write(line + '\n')
 
 
 def schedule_plugins(plugins):
@@ -53,12 +34,8 @@ def schedule_plugins(plugins):
     for name, p in plugins.items():
         # register jobs (daily and stable)
         scheduler.add_job(
-            p.state.checkifupdate, 'cron', name=name,
+            p.state.checkifupdate, 'cron', name=name, args=[{'plugins':plugins}],
             day_of_week=p.dow, hour=p.h, day=p.d, minute=p.m, second=p.s)
-        #if p.UPDATE_STABLE:
-        #    scheduler.add_job(
-        #        p.stablestate.checkifupdate, 'cron', name='{}-stable'.format(name),
-        #        day_of_week=p.sdow, hour=p.sh, day=p.sd, minute=p.sm, second=p.ss)
 
 
 def register_plugins(plugindir, store, links):
@@ -72,13 +49,13 @@ def register_plugins(plugindir, store, links):
         logger.info('Found "{}"'.format(e))
         module = imp.load_source(e, os.path.join(plugindir, e + '.py'))
         instance[e] = module.create()
-        instance[e].init(e, store=store, links=links)
+        instance[e].init(name=e, store=store, links=links)
 
-        # check start up state
-        try:
-            instance[e].initial_state_clean()
-        except:
-            raise
+        ## check start up state
+        #try:
+        #    instance[e].initial_state_clean()
+        #except:
+        #    raise
     return instance
 
 
@@ -96,7 +73,7 @@ def apply_statemachines(plugins):
     ]
 
     for name, p in plugins.items():
-        callback = {
+        callbacks = {
             'onaftercheckifupdate': p.check,
             'onafterdoupdate': p.updatedb,
             'onbeforefinished': p.update_links,
@@ -104,30 +81,7 @@ def apply_statemachines(plugins):
         }
         p.state = fysom.Fysom({'initial': initstate,
                                'events': events,
-                               'callbacks': callback })
-
-    #state machine for stable links
-    #initstate = 'up_to_date'
-    #events = [
-    #   {'name': 'checkifupdate', 'src': 'up_to_date', 'dst': 'checking'},
-    #   {'name': 'checkifupdate', 'src': 'failed_update', 'dst': 'checking'},
-    #   {'name': 'doupdate', 'src': 'checking', 'dst': 'updating'},
-    #   {'name': 'finished', 'src': 'updating', 'dst': 'up_to_date'},
-    #   {'name': 'notfinished', 'src': 'checking', 'dst': 'failed_update'},
-    #]
-
-    #for name, p in plugins.items():
-    #    callback = {
-    #        'onaftercheckifupdate': p.check_stable,
-    #        'onafterdoupdate': p.update_db_stable,
-    #        'onbeforefinished': p.refreshlinks,
-    #        'onchangestate': p.logstate,
-    #    }
-    #    p.stablestate = fysom.Fysom({'initial': initstate,
-    #                                 'events': events,
-    #                                 'callbacks': callback })
-    #  
-    #return 
+                               'callbacks': callbacks })
 
 
 def signal_handling(plugins):
@@ -142,8 +96,9 @@ def signal_handling(plugins):
             os.remove(fnsignal)
             pname = line.split()[0]
             if pname in plugins:
-                logger.info('Signal-triggered "{}" checking'.format(pname))
-                plugins[pname].state.checkifupdate()
+                logger.info('Signal-t riggered "{}" checking'.format(pname))
+                if plugins[pname].state.can('checkifupdate'):
+                    plugins[pname].state.checkifupdate({'plugins': plugins})
         else:
             return
     except IOError, e:
@@ -181,22 +136,20 @@ if __name__ == "__main__":
             time.sleep(refreshtime)
             with open('schedulerjobs.log', 'w') as fo:
                 scheduler.print_jobs(out=fo)
-            status = {}
+            #status = {}
+            statuslist = []
 
             for name, p in plugins.items():
 
                 # this state should only be after a failed update, let's try again
                 if p.state.isstate('failed_update'):
                     p.logger.info('Retrying update')
-                    p.state.doupdate()
-                #if p.stablestate.isstate('sfailed_update'):
-                #    p.logger.info('Retrying update')
-                #    p.stablestate.checkifupdate()
+                    p.state.doupdate({'plugins': plugins})
 
-                status[p.__name__] = dict(
-                    status=p.state.current, contact=p.contact, email=p.email)
+                statuslist.append(p.status())
 
-            update_status(status, 'status.log', 'schedulerjobs.log')
+            statuslist.sort()
+            update_status2(statuslist, 'status.log')
 
             signal_handling(plugins)
 
