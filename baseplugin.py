@@ -31,22 +31,22 @@ class Base:
     def set_freq(self, sec=None, min=None, hour=None, day=None, dow=None):
         self.s, self.m, self.h, self.d, self.dow = sec, min, hour, day, dow
 
-    def check_freq(self):
+    def _check_freq(self):
         if not any([self.s, self.m, self.h, self.d, self.dow]):
             raise Exception("No update frequency provided")
 
-    def set_functions(self):
+    def _set_functions(self):
          if self.method is 'scratch':
-             self.check = self.check_scratch
-             self.updatedb = self.updatedb_scratch
+             self.check = self._check_scratch
+             self.updatedb = self._updatedb_scratch
          if self.method is 'incremental':
-             self.check = self.check_scratch
-             self.updatedb = self.updatedb_incremental
+             self.check = self._check_scratch
+             self.updatedb = self._updatedb_incremental
          if self.method is 'dependent':
-             self.check = self.check_dependent
-             self.updatedb = self.updatedb_dependent
+             self.check = self._check_dependent
+             self.updatedb = self._updatedb_dependent
 
-    def set_pathnames(self):
+    def _set_pathnames(self):
         name = self.__name__
         if self.method is 'dependent':
             if len(name.split('-')) != 2:
@@ -59,27 +59,7 @@ class Base:
            self.mod = 'latest'
         return
 
-    def initial_state_clean(self):
-        # Test 1: No updating or frozen links
-        if os.path.exists(self.l_updating):
-            raise Exception('Unclean inital state. '
-                            '{} exists'.format(self.l_updating))
-        if os.path.exists(self.d_checking):
-            raise Exception('Unclean inital state. '
-                            '{} exists'.format(self.d_checking))
-
-        # Test 2: No more that 2 not-frozen directories
-        pathdirs = os.path.join(self.STORE, self.__name__ + '_*')
-        alldirs = glob.glob(pathdirs)
-        frozenpath = os.path.join(self.STORE, self.__name__ + '_*',
-                                  self.FROZEN)
-        frozenflags = glob.glob(frozenpath)
-        frozendirs = [f[:-len('/' + self.FROZEN)] for f in frozenflags]
-        listing = list(set(alldirs) - set(frozendirs))
-        if len(listing) > 2:
-            raise Exception('Unclean inital state. '
-                            'More than 2 non-frozen versions: '
-                            '{}'.format(pathdirs))
+    def _initial_state_clean(self):
 
         def makedirs_existsok(path):
             try:
@@ -95,70 +75,69 @@ class Base:
                 if e.errno != errno.ENOENT:
                     raise
 
-        # Assign links to directories
-        listing = alldirs
-        listing.sort()
-        makedirs_existsok(os.path.join(self.LINKS, self.__name__))
-        if len(listing) == 0:
-            ndir = os.path.join(self.STORE, self.dep + '_000000T000000')
-            makedirs_existsok(ndir)
-            remove_nexistok(self.l_prev)
-            os.symlink(ndir, self.l_prev)
-            remove_nexistok(self.l_mod)
-            os.symlink(ndir, self.l_mod)
-        if len(listing) == 1:
-            remove_nexistok(self.l_mod)
-            os.symlink(listing[0], self.l_mod)
-            remove_nexistok(self.l_prev)
-            os.symlink(listing[0], self.l_prev)
-        if len(listing) == 2:
-            ndir = listing[0]
-            remove_nexistok(self.l_prev)
-            os.symlink(ndir, self.l_prev)
-            ndir = listing[1]
-            remove_nexistok(self.l_mod)
-            os.symlink(ndir, self.l_mod)
+        def init_symlinks (self, sl):
+            try:
+                os.readlink(sl)
+            except OSError as e:
+                if e.errno == errno.ENOENT:
+                    os.symlink('dummy', sl)
+            finally:
+                if os.readlink(sl) not in listing:
+                    ndir = os.path.join(self.STORE, self.dep + '_000000T000000')
+                    makedirs_existsok(ndir)
+                    remove_nexistok(sl)
+                    os.symlink(ndir, sl)
 
-        self.create_frozen_links()
+        # Create frozen symlinks
+        self._create_frozen_links()
+        # No updating or checking links
+        if os.path.exists(self.l_updating) or os.path.exists(self.d_checking):
+            raise Exception('Unclean inital state. '
+                            'Checking or updating links exist')
+        alldirs = glob.glob(os.path.join(self.STORE, self.dep + '_*'))
+        listing = list(set(alldirs) - set(self._d_frozen()))
+        # Initialize missing symlinks
+        init_symlinks (self, self.l_mod)
+        init_symlinks (self, self.l_prev)
 
         return True
 
-    def refreshlinks(self, e=None):
+    def _refreshlinks(self, e=None):
         self.d_mod = os.readlink(self.l_mod)
         self.d_prev = os.readlink(self.l_prev)
 
-    def create_frozen_links(self):
+    def _d_frozen(self):
+        frozenpath = os.path.join(self.STORE, self.dep + '_*', self.FROZEN)
+        frozenflags = glob.glob(frozenpath)
+        return [f[:-len('/' + self.FROZEN)] for f in frozenflags]
+
+    def _l_frozen(self):
+        return glob.glob(os.path.join(self.LINKS, self.dep, 'frozen_*'))
+
+    def _create_frozen_links(self):
         '''create symlinks to frozen versions'''
 
-        def remove_nexistok(filename):
+        def _remove_nexistok(filename):
             try:
                 os.remove(filename)
             except OSError as e:
                 if e.errno != errno.ENOENT:
                     raise
 
-        l_frozen = glob.glob(os.path.join(self.LINKS,
-                                          self.__name__, 'frozen-*'))
-        for lf in l_frozen:
-            remove_nexistok(lf)
-
-        frozenpath = os.path.join(self.STORE,
-                                  self.__name__ + '-*', self.FROZEN)
-        frozenflags = glob.glob(frozenpath)
-        frozendirs = [f[:-len('/' + self.FROZEN)] for f in frozenflags]
-        for fdir in frozendirs:
-            l_frozen = os.path.join(self.LINKS, self.__name__,
-                                    'frozen-' + fdir.split('-')[-1])
-            remove_nexistok(l_frozen)
-            os.symlink(fdir, l_frozen)
-        return True
+        for lf in self._l_frozen():
+            _remove_nexistok(lf)
+        for df in self._d_frozen():
+            lf = os.path.join(self.LINKS, self.dep, 'frozen_' + df.split('_')[-1])
+            _remove_nexistok(lf)
+            os.symlink(df, lf)
+        return
 
     def init(self, name, store='INIT_ME', links='INIT_ME'):
-        self.check_freq()
+        self._check_freq()
         self.__name__ = name
         self.logger = logging.getLogger(self.__name__)
-        self.set_functions()
-        self.set_pathnames()
+        self._set_functions()
+        self._set_pathnames()
      
         self.FROZEN = 'FROZEN'
         self.STORE = store
@@ -175,11 +154,11 @@ class Base:
      
         # check start up state
         try:
-            self.initial_state_clean()
+            self._initial_state_clean()
         except:
             raise
 
-        self.refreshlinks()
+        self._refreshlinks()
 
     def logstate(self, e):
         self.logger.info('Current state: ' + e.dst) 
@@ -199,7 +178,7 @@ class Base:
             '{} ({})'.format(self.contact, self.email))
         return line
 
-    def check_scratch(self, e):
+    def _check_scratch(self, e):
         p = e.args[0]['plugins']
         TMPPATH = self.d_checking
         os.makedirs(TMPPATH)
@@ -211,7 +190,7 @@ class Base:
             self.state.nonews()
         return
 
-    def check_dependent(self, e):
+    def _check_dependent(self, e):
         p = e.args[0]['plugins']
         if not self.dep in p:
             raise Exception('{} plugin not present'.format(self.dep))
@@ -224,7 +203,7 @@ class Base:
         return
 
 
-    def updatedb_scratch(self, e):
+    def _updatedb_scratch(self, e):
         ''' create new directory and launch run() function in a new thread '''
 
         def run(self, path):
@@ -245,7 +224,7 @@ class Base:
             run_thread.setDaemon(True)
         run_thread.start()
 
-    def updatedb_incremental(self, e):
+    def _updatedb_incremental(self, e):
         ''' create new directory and launch run() function in a new thread '''
 
         def run(self, path):
@@ -273,7 +252,7 @@ class Base:
         run_thread.start()
 
 
-    def updatedb_dependent(self, e):
+    def _updatedb_dependent(self, e):
         p = e.args[0]['plugins']
         self.d_updating = p[self.dep].d_mod
         os.symlink(self.d_updating, self.l_updating)
@@ -282,7 +261,7 @@ class Base:
 
     def update_links(self, e):
         p = e.args[0]['plugins']
-        self.refreshlinks()
+        self._refreshlinks()
         os.remove(self.l_updating)
         os.remove(self.l_mod)
         os.symlink(self.d_updating, self.l_mod)
@@ -290,15 +269,17 @@ class Base:
         os.symlink(self.d_mod, self.l_prev)
         frozen = os.path.isfile(os.path.join(self.d_prev, self.FROZEN))
         clear = True
-        for key in p:
-            if self.d_prev == p[key].d_prev:
+        for name in p:
+            if name == self.__name__:
+                continue
+            if self.d_prev == p[name].d_prev or self.d_prev == p[name].d_mod: 
                 clear = False
-        if self.d_mod != self.d_prev and not frozen is clear:
+        if self.d_mod != self.d_prev and not frozen and clear:
+        #if not frozen and clear:
                 shutil.rmtree(self.d_prev)
-        self.refreshlinks()
+        self._refreshlinks()
 
-        # TODO: check that the following is ok:
-        self.create_frozen_links()
+        self._create_frozen_links()
 
 
     def check_update(self, a, b):

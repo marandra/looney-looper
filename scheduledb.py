@@ -41,22 +41,17 @@ def schedule_plugins(plugins):
 def register_plugins(plugindir, store, links):
     ''' registration of plugins and scheduling of jobs '''
 
-    plugins = map(os.path.basename, glob.glob(os.path.join(plugindir, '*.py')))
-    plugins = [p[:-3] for p in plugins]
+    pluginlist = map(os.path.basename, glob.glob(os.path.join(plugindir, '*.py')))
+    pluginlist = [p[:-3] for p in pluginlist]
 
-    instance = {}
-    for e in plugins:
-        logger.info('Found "{}"'.format(e))
-        module = imp.load_source(e, os.path.join(plugindir, e + '.py'))
-        instance[e] = module.create()
-        instance[e].init(name=e, store=store, links=links)
-
-        ## check start up state
-        #try:
-        #    instance[e].initial_state_clean()
-        #except:
-        #    raise
-    return instance
+    plugins = {}
+    for n in pluginlist:
+        logger.info('Found "{}"'.format(n))
+        module = imp.load_source(n, os.path.join(plugindir, n + '.py'))
+        plugins[n] = module.create()
+        plugins[n].init(name=n, store=store, links=links)
+    
+    return plugins
 
 
 def apply_statemachines(plugins):
