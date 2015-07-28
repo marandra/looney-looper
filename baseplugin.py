@@ -37,14 +37,14 @@ class Base:
 
     def _set_functions(self):
          if self.method is 'scratch':
-             self.check = self._check_scratch
-             self.updatedb = self._updatedb_scratch
+             self._check = self._check_scratch
+             self._update = self._update_scratch
          if self.method is 'incremental':
-             self.check = self._check_scratch
-             self.updatedb = self._updatedb_incremental
+             self._check = self._check_scratch
+             self._update = self._update_incremental
          if self.method is 'dependent':
-             self.check = self._check_dependent
-             self.updatedb = self._updatedb_dependent
+             self._check = self._check_dependent
+             self._update = self._update_dependent
 
     def _set_pathnames(self):
         name = self.__name__
@@ -75,7 +75,9 @@ class Base:
                 if e.errno != errno.ENOENT:
                     raise
 
-        def init_symlinks (self, sl):
+        def init_symlinks (self, sl, listing):
+            ndir = os.path.join(self.LINKS, self.dep)
+            makedirs_existsok(ndir)
             try:
                 os.readlink(sl)
             except OSError as e:
@@ -94,11 +96,11 @@ class Base:
         if os.path.exists(self.l_updating) or os.path.exists(self.d_checking):
             raise Exception('Unclean inital state. '
                             'Checking or updating links exist')
+        # Initialize missing symlinks
         alldirs = glob.glob(os.path.join(self.STORE, self.dep + '_*'))
         listing = list(set(alldirs) - set(self._d_frozen()))
-        # Initialize missing symlinks
-        init_symlinks (self, self.l_mod)
-        init_symlinks (self, self.l_prev)
+        init_symlinks(self, self.l_mod, listing)
+        init_symlinks(self, self.l_prev, listing)
 
         return True
 
@@ -180,10 +182,9 @@ class Base:
 
     def _check_scratch(self, e):
         p = e.args[0]['plugins']
-        TMPPATH = self.d_checking
-        os.makedirs(TMPPATH)
-        updateavailable = self.check_update(TMPPATH, self.l_mod)
-        shutil.rmtree(TMPPATH)
+        os.makedirs(self.d_checking)
+        updateavailable = self.check()
+        shutil.rmtree(self.d_checking)
         if updateavailable:
             self.state.doupdate({'plugins': p})
         else:
@@ -203,32 +204,32 @@ class Base:
         return
 
 
-    def _updatedb_scratch(self, e):
+    def _update_scratch(self, e):
         ''' create new directory and launch run() function in a new thread '''
 
-        def run(self, path):
-            if not self.update(path):
-                self.state.finished({'plugins': p})
+        def run(self, plugins):
+            if not self.update(plugins):
+                self.state.finished({'plugins': plugins})
             else:
                 self.state.notfinished()
 
-        p = e.args[0]['plugins']
+        plugins = e.args[0]['plugins']
         wait = False
         self.d_updating = os.path.join(self.STORE, '{}{}'.format(self.__name__, self._timestamp()))
 
         os.mkdir(self.d_updating)
 
         os.symlink(self.d_updating, self.l_updating)
-        run_thread = threading.Thread(target=run, args=[self, self.l_updating])
+        run_thread = threading.Thread(target=run, args=[self, plugins])
         if not wait:
             run_thread.setDaemon(True)
         run_thread.start()
 
-    def _updatedb_incremental(self, e):
+    def _update_incremental(self, e):
         ''' create new directory and launch run() function in a new thread '''
 
-        def run(self, path):
-            if not self.update(path):
+        def run(self):
+            if not self.update():
                 self.state.finished({'plugins': p})
             else:
                 self.state.notfinished()
@@ -246,21 +247,21 @@ class Base:
                 raise
 
         os.symlink(self.d_updating, self.l_updating)
-        run_thread = threading.Thread(target=run, args=[self, self.l_updating])
+        run_thread = threading.Thread(target=run, args=[self])
         if not wait:
             run_thread.setDaemon(True)
         run_thread.start()
 
 
-    def _updatedb_dependent(self, e):
+    def _update_dependent(self, e):
         p = e.args[0]['plugins']
         self.d_updating = p[self.dep].d_mod
         os.symlink(self.d_updating, self.l_updating)
         self.state.finished({'plugins': p})
 
 
-    def update_links(self, e):
-        p = e.args[0]['plugins']
+    def _update_links(self, e):
+        plugins = e.args[0]['plugins']
         self._refreshlinks()
         os.remove(self.l_updating)
         os.remove(self.l_mod)
@@ -269,24 +270,30 @@ class Base:
         os.symlink(self.d_mod, self.l_prev)
         frozen = os.path.isfile(os.path.join(self.d_prev, self.FROZEN))
         clear = True
-        for name in p:
+        for name in plugins:
             if name == self.__name__:
                 continue
-            if self.d_prev == p[name].d_prev or self.d_prev == p[name].d_mod: 
+            if self.d_prev == plugins[name].d_prev or self.d_prev == plugins[name].d_mod: 
                 clear = False
         if self.d_mod != self.d_prev and not frozen and clear:
         #if not frozen and clear:
                 shutil.rmtree(self.d_prev)
         self._refreshlinks()
-
         self._create_frozen_links()
 
 
-    def check_update(self, a, b):
+    def check(self):
         raise Exception('NotImplemented. '
                         'The method needs to be implemented in subclasses')
 
-    def update(self, path):
+    def update(self, plugins):
         raise Exception('NotImplemented. '
                         'The method needs to be implemented in subclasses')
+
+    def _postprocess(self, e):
+        plugins = e.args[0]['plugins']
+        self.postprocess(plugins)
+
+    def postprocess(self, plugins):
+        pass
 

@@ -13,7 +13,7 @@ import imp
 import errno
 import fysom
 
-def update_status2(status, fname):
+def update_status(status, fname):
     # header
     with open(fname, 'w') as fo:
         timestr = time.strftime("%d %b %Y %H:%M:%S", time.localtime())
@@ -69,9 +69,10 @@ def apply_statemachines(plugins):
 
     for name, p in plugins.items():
         callbacks = {
-            'onaftercheckifupdate': p.check,
-            'onafterdoupdate': p.updatedb,
-            'onbeforefinished': p.update_links,
+            'onaftercheckifupdate': p._check,
+            'onafterdoupdate': p._update,
+            'onbeforefinished': p._update_links,
+            'onafterfinished': p._postprocess,
             'onchangestate': p.logstate,
         }
         p.state = fysom.Fysom({'initial': initstate,
@@ -144,7 +145,7 @@ if __name__ == "__main__":
                 statuslist.append(p.status())
 
             statuslist.sort()
-            update_status2(statuslist, 'status.log')
+            update_status(statuslist, 'status.log')
 
             signal_handling(plugins)
 
