@@ -15,6 +15,7 @@ class Base:
         self.set_method()
         self.set_contact()
         self.set_freq()
+        self.set_previous()
 
     def set_method(self, method='scratch'):
          methods = ['scratch', 'incremental', 'dependent']
@@ -24,8 +25,13 @@ class Base:
          else:
              self.method = method
 
-    def set_contact(self, contact='None', email='None'):
-        self.contact = contact
+    def set_previous(self, flag=False):
+         self.previous = False
+         if flag:
+             self.previous = True
+
+    def set_contact(self, name='None', email='None'):
+        self.contact = name
         self.email = email
 
     def set_freq(self, sec=None, min=None, hour=None, day=None, dow=None):
@@ -100,13 +106,15 @@ class Base:
         alldirs = glob.glob(os.path.join(self.STORE, self.dep + '_*'))
         listing = list(set(alldirs) - set(self._d_frozen()))
         init_symlinks(self, self.l_mod, listing)
-        init_symlinks(self, self.l_prev, listing)
+        if self.previous:
+            init_symlinks(self, self.l_prev, listing)
 
         return True
 
     def _refreshlinks(self, e=None):
         self.d_mod = os.readlink(self.l_mod)
-        self.d_prev = os.readlink(self.l_prev)
+        if self.previous:
+            self.d_prev = os.readlink(self.l_prev)
 
     def _d_frozen(self):
         frozenpath = os.path.join(self.STORE, self.dep + '_*', self.FROZEN)
@@ -151,7 +159,7 @@ class Base:
         self.d_updating = ''
         self.d_checking = os.path.join(self.STORE,
                                        '{}-{}'.format(self.__name__, 'checking'))
-        self.l_prev = os.path.join(self.LINKS, self.dep, 'prev-' + self.mod)
+        self.l_prev = os.path.join(self.LINKS, self.dep, self.mod + '-prev')
         self.d_prev = ''
      
         # check start up state
@@ -263,21 +271,34 @@ class Base:
     def _update_links(self, e):
         plugins = e.args[0]['plugins']
         self._refreshlinks()
+
         os.remove(self.l_updating)
         os.remove(self.l_mod)
         os.symlink(self.d_updating, self.l_mod)
-        os.remove(self.l_prev)
-        os.symlink(self.d_mod, self.l_prev)
-        frozen = os.path.isfile(os.path.join(self.d_prev, self.FROZEN))
-        clear = True
-        for name in plugins:
-            if name == self.__name__:
-                continue
-            if self.d_prev == plugins[name].d_prev or self.d_prev == plugins[name].d_mod: 
-                clear = False
-        if self.d_mod != self.d_prev and not frozen and clear:
-        #if not frozen and clear:
-                shutil.rmtree(self.d_prev)
+
+        if self.previous:
+            os.remove(self.l_prev)
+            os.symlink(self.d_mod, self.l_prev)
+            frozen = os.path.isfile(os.path.join(self.d_prev, self.FROZEN))
+            clear = True
+            for name in plugins:
+                if name == self.__name__:
+                    continue
+                if self.d_prev == plugins[name].d_prev or self.d_prev == plugins[name].d_mod: 
+                    clear = False
+            if self.d_mod != self.d_prev and not frozen and clear:
+                    shutil.rmtree(self.d_prev)
+        else:
+            frozen = os.path.isfile(os.path.join(self.d_mod, self.FROZEN))
+            clear = True
+            for name in plugins:
+                if name == self.__name__:
+                    continue
+                if self.d_mod == plugins[name].d_prev or self.d_mod == plugins[name].d_mod: 
+                    clear = False
+            if not frozen and clear:
+                    shutil.rmtree(self.d_mod)
+
         self._refreshlinks()
         self._create_frozen_links()
 

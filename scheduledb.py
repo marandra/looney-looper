@@ -32,7 +32,7 @@ def schedule_plugins(plugins):
     ''' scheduling of jobs '''
 
     for name, p in plugins.items():
-        # register jobs (daily and stable)
+        # register jobs
         scheduler.add_job(
             p.state.checkifupdate, 'cron', name=name, args=[{'plugins':plugins}],
             day_of_week=p.dow, hour=p.h, day=p.d, minute=p.m, second=p.s)
