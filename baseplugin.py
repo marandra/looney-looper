@@ -99,9 +99,14 @@ class Base:
         # Create frozen symlinks
         self._create_frozen_links()
         # No updating or checking links
-        if os.path.exists(self.l_updating) or os.path.exists(self.d_checking):
+        if os.path.exists(self.d_checking):
             raise Exception('Unclean inital state. '
-                            'Checking or updating links exist')
+                            'Checking directory exists')
+        if os.path.exists(self.d_updating):
+            raise Exception('Unclean inital state. '
+                            'Updating directory exists. '
+                            'If this is a continuation of an interrupted update, '
+                            'rename "updating" to "updating-cont".')
         # Initialize missing symlinks
         alldirs = glob.glob(os.path.join(self.STORE, self.dep + '_*'))
         listing = list(set(alldirs) - set(self._d_frozen()))
@@ -154,12 +159,12 @@ class Base:
         self.LINKS = links
         self.l_mod = os.path.join(self.LINKS, self.dep, self.mod)
         self.d_mod = ''
-        self.l_updating = os.path.join(self.STORE,
+        self.d_updating = os.path.join(self.STORE,
                                        '{}-{}'.format(self.__name__, 'updating'))
-        self.d_updating = ''
         self.d_checking = os.path.join(self.STORE,
                                        '{}-{}'.format(self.__name__, 'checking'))
-        self.l_prev = os.path.join(self.LINKS, self.dep, self.mod + '-prev')
+        self.l_prev = os.path.join(self.LINKS, self.dep,
+                                       '{}-{}'.format(self.mod, 'prev'))
         self.d_prev = ''
      
         # check start up state
@@ -215,6 +220,7 @@ class Base:
     def _update_scratch(self, e):
         ''' create new directory and launch run() function in a new thread '''
 
+
         def run(self, plugins):
             if not self.update(plugins):
                 self.state.finished({'plugins': plugins})
@@ -223,11 +229,15 @@ class Base:
 
         plugins = e.args[0]['plugins']
         wait = False
-        self.d_updating = os.path.join(self.STORE, '{}{}'.format(self.__name__, self._timestamp()))
 
-        os.mkdir(self.d_updating)
+        path = self.d_updating
+        pathcont = '{}-{}'.format(path, 'cont')
+        if os.path.exists(pathcont):
+            self.logger.debug("Reusing update directory")
+            os.rename(pathcont, path)
+        else:
+            os.makedirs(path)
 
-        os.symlink(self.d_updating, self.l_updating)
         run_thread = threading.Thread(target=run, args=[self, plugins])
         if not wait:
             run_thread.setDaemon(True)
@@ -244,17 +254,23 @@ class Base:
 
         p = e.args[0]['plugins']
         wait = False
-        self.d_updating = os.path.join(self.STORE, '{}{}'.format(self.__name__, self._timestamp()))
 
-        self.logger.debug("Copying directory for incremental update")
-        shutil.copytree(self.l_mod, self.d_updating)
+
+        path = self.d_updating
+        pathcont = '{}-{}'.format(path, 'cont')
+        if os.path.exists(pathcont):
+            self.logger.debug("Reusing update directory")
+            os.rename(pathcont, path)
+        else:
+            self.logger.debug("Copying directory for incremental update")
+            shutil.copytree(self.l_mod, self.d_updating)
+
         try:
             os.remove(os.path.join(self.d_updating, self.FROZEN))
         except OSError as err:
             if err.errno != errno.ENOENT:
                 raise
 
-        os.symlink(self.d_updating, self.l_updating)
         run_thread = threading.Thread(target=run, args=[self])
         if not wait:
             run_thread.setDaemon(True)
@@ -264,7 +280,6 @@ class Base:
     def _update_dependent(self, e):
         p = e.args[0]['plugins']
         self.d_updating = p[self.dep].d_mod
-        os.symlink(self.d_updating, self.l_updating)
         self.state.finished({'plugins': p})
 
 
@@ -272,9 +287,10 @@ class Base:
         plugins = e.args[0]['plugins']
         self._refreshlinks()
 
-        os.remove(self.l_updating)
         os.remove(self.l_mod)
-        os.symlink(self.d_updating, self.l_mod)
+        ndir = os.path.join(self.STORE, '{}{}'.format(self.__name__, self._timestamp()))
+        os.rename(self.d_updating, ndir)
+        os.symlink(ndir, self.l_mod)
 
         if self.previous:
             os.remove(self.l_prev)
