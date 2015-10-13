@@ -1,0 +1,12 @@
+Installation:
+
+Python dependencies:
+
+Easier is to use virtualenv
+
+virtualenv venv
+source venv/bin/activate
+pip install apscheduler
+pip install fysom
+./scheduledb.py 
+

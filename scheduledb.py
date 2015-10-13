@@ -2,6 +2,7 @@
 
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
+import ConfigParser
 import time
 import datetime
 import sys
@@ -112,10 +113,16 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     scheduler = BackgroundScheduler()
 
-    # set up paths
-    plugindir = '../.plugins'
-    store = '../store'
-    links = '..'
+    # read and set up paths
+    config = ConfigParser.ConfigParser()
+    config.read('./config')
+    plugindir = config.get('paths', 'plugindir')
+    store = config.get('paths', 'store')
+    links = config.get('paths', 'links')
+    logger.debug('Read paths from config file')
+    print plugindir
+    print store
+    print links
 
     # set up options
     refreshtime = 4

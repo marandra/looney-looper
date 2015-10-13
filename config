@@ -1,0 +1,5 @@
+[paths]
+plugindir = '../.plugins'
+store = '../store'
+links = '..'
+
