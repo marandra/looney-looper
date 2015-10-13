@@ -120,12 +120,10 @@ if __name__ == "__main__":
     store = config.get('paths', 'store')
     links = config.get('paths', 'links')
     logger.debug('Read paths from config file')
-    print plugindir
-    print store
-    print links
 
     # set up options
-    refreshtime = 4
+    refreshtime = 5
+    logger.debug('Refresh time: {} seconds'.format(refreshtime))
 
     try:
         # initialization

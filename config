@@ -1,5 +1,5 @@
 [paths]
-plugindir = '../.plugins'
-store = '../store'
-links = '..'
+plugindir=../.plugins
+store=../store
+links=..
 

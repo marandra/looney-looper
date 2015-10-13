@@ -5,7 +5,6 @@ import shutil
 import threading
 import glob
 import errno
-import transitions
 import time
 
 # class Base(object):
