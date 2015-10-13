@@ -92,7 +92,7 @@ def signal_handling(plugins):
             os.remove(fnsignal)
             pname = line.split()[0]
             if pname in plugins:
-                logger.info('Signal-t riggered "{}" checking'.format(pname))
+                logger.info('Signal-triggered "{}" checking'.format(pname))
                 if plugins[pname].state.can('checkifupdate'):
                     plugins[pname].state.checkifupdate({'plugins': plugins})
         else:

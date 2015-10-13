@@ -5,7 +5,6 @@ import shutil
 import threading
 import glob
 import errno
-import transitions
 import time
 
 # class Base(object):
@@ -233,7 +232,7 @@ class Base:
         path = self.d_updating
         pathcont = '{}-{}'.format(path, 'cont')
         if os.path.exists(pathcont):
-            self.logger.debug("Reusing update directory")
+            self.logger.debug("Re-using update directory")
             os.rename(pathcont, path)
         else:
             os.makedirs(path)
@@ -246,20 +245,20 @@ class Base:
     def _update_incremental(self, e):
         ''' create new directory and launch run() function in a new thread '''
 
-        def run(self):
-            if not self.update():
-                self.state.finished({'plugins': p})
+        def run(self, plugins):
+            if not self.update(plugins):
+                self.state.finished({'plugins': plugins})
             else:
                 self.state.notfinished()
 
-        p = e.args[0]['plugins']
+        plugins = e.args[0]['plugins']
         wait = False
 
 
         path = self.d_updating
         pathcont = '{}-{}'.format(path, 'cont')
         if os.path.exists(pathcont):
-            self.logger.debug("Reusing update directory")
+            self.logger.debug("Re-using update directory")
             os.rename(pathcont, path)
         else:
             self.logger.debug("Copying directory for incremental update")
@@ -271,7 +270,7 @@ class Base:
             if err.errno != errno.ENOENT:
                 raise
 
-        run_thread = threading.Thread(target=run, args=[self])
+        run_thread = threading.Thread(target=run, args=[self, plugins])
         if not wait:
             run_thread.setDaemon(True)
         run_thread.start()
