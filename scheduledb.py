@@ -14,6 +14,7 @@ import imp
 import errno
 import fysom
 
+
 def update_status(status, fname):
     # header
     with open(fname, 'w') as fo:
@@ -35,14 +36,16 @@ def schedule_plugins(plugins):
     for name, p in plugins.items():
         # register jobs
         scheduler.add_job(
-            p.state.checkifupdate, 'cron', name=name, args=[{'plugins':plugins}],
+            p.state.checkifupdate, 'cron', name=name,
+            args=[{'plugins': plugins}],
             day_of_week=p.dow, hour=p.h, day=p.d, minute=p.m, second=p.s)
 
 
 def register_plugins(plugindir, store, links):
     ''' registration of plugins and scheduling of jobs '''
 
-    pluginlist = map(os.path.basename, glob.glob(os.path.join(plugindir, '*.py')))
+    pluginlist = map(os.path.basename,
+                     glob.glob(os.path.join(plugindir, '*.py')))
     pluginlist = [p[:-3] for p in pluginlist]
 
     plugins = {}
@@ -51,7 +54,7 @@ def register_plugins(plugindir, store, links):
         module = imp.load_source(n, os.path.join(plugindir, n + '.py'))
         plugins[n] = module.create()
         plugins[n].init(name=n, store=store, links=links)
-    
+
     return plugins
 
 
@@ -78,7 +81,7 @@ def apply_statemachines(plugins):
         }
         p.state = fysom.Fysom({'initial': initstate,
                                'events': events,
-                               'callbacks': callbacks })
+                               'callbacks': callbacks})
 
 
 def signal_handling(plugins):
@@ -137,12 +140,11 @@ if __name__ == "__main__":
             time.sleep(refreshtime)
             with open('schedulerjobs.log', 'w') as fo:
                 scheduler.print_jobs(out=fo)
-            #status = {}
             statuslist = []
 
             for name, p in plugins.items():
 
-                # this state should only be after a failed update, let's try again
+                # this state is due to a failed update, let's try again
                 if p.state.isstate('failed_update'):
                     p.logger.info('Retrying update')
                     p.state.doupdate({'plugins': plugins})
