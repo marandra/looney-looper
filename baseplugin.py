@@ -319,8 +319,7 @@ class Base:
 
 
     def check(self):
-        raise Exception('NotImplemented. '
-                        'The method needs to be implemented in subclasses')
+        return True
 
     def update(self, plugins):
         raise Exception('NotImplemented. '
