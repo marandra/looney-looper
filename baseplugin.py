@@ -1,3 +1,4 @@
+from builtins import object
 import logging
 import os
 import datetime
@@ -8,7 +9,7 @@ import errno
 import time
 
 # class Base(object):
-class Base:
+class Base(object):
 
     def __init__(self):
         self.set_method()

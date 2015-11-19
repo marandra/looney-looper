@@ -1,8 +1,11 @@
-#!/usr/bin/env python2.7
+#!/bin/env python
+from future import standard_library
+standard_library.install_aliases()
+from builtins import map
 
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
-import ConfigParser
+import configparser
 import time
 import datetime
 import sys
@@ -33,7 +36,7 @@ def update_status(status, fname):
 def schedule_plugins(plugins):
     ''' scheduling of jobs '''
 
-    for name, p in plugins.items():
+    for name, p in list(plugins.items()):
         # register jobs
         scheduler.add_job(
             p.state.checkifupdate, 'cron', name=name,
@@ -44,8 +47,8 @@ def schedule_plugins(plugins):
 def register_plugins(plugindir, store, links):
     ''' registration of plugins and scheduling of jobs '''
 
-    pluginlist = map(os.path.basename,
-                     glob.glob(os.path.join(plugindir, '*.py')))
+    pluginlist = list(map(os.path.basename,
+                     glob.glob(os.path.join(plugindir, '*.py'))))
     pluginlist = [p[:-3] for p in pluginlist]
 
     plugins = {}
@@ -71,7 +74,7 @@ def apply_statemachines(plugins):
        {'name': 'notfinished', 'src': 'updating', 'dst': 'failed_update'},
     ]
 
-    for name, p in plugins.items():
+    for name, p in list(plugins.items()):
         callbacks = {
             'onaftercheckifupdate': p._check,
             'onafterdoupdate': p._update,
@@ -92,7 +95,7 @@ def signal_handling(plugins):
         if 'stop' in line:
             os.remove(fnsignal)
             raise Exception("Received 'stop' signal")
-        elif 'checknow' in line.split():
+        elif 'check' in line.split():
             os.remove(fnsignal)
             pname = line.split()[0]
             if pname in plugins:
@@ -101,7 +104,7 @@ def signal_handling(plugins):
                     plugins[pname].state.checkifupdate({'plugins': plugins})
         else:
             return
-    except IOError, e:
+    except IOError as e:
         if e.errno == 2:
             pass
         else:
@@ -117,7 +120,7 @@ if __name__ == "__main__":
     scheduler = BackgroundScheduler()
 
     # read and set up paths
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read('./config')
     plugindir = config.get('paths', 'plugindir')
     store = config.get('paths', 'store')
@@ -142,7 +145,7 @@ if __name__ == "__main__":
                 scheduler.print_jobs(out=fo)
             statuslist = []
 
-            for name, p in plugins.items():
+            for name, p in list(plugins.items()):
 
                 # this state is due to a failed update, let's try again
                 if p.state.isstate('failed_update'):
