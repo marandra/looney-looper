@@ -1,5 +1,5 @@
 [paths]
 plugindir=../.plugins
-store=../store
+store=../.store
 links=..
 
