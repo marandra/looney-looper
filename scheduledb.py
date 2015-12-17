@@ -62,7 +62,7 @@ def register_plugins(plugindir, store, links):
 
 
 def apply_statemachines(plugins):
-    ''' states and trasnitions for state machine '''
+    ''' states and transitions for state machine '''
 
     initstate = 'up_to_date'
     events = [

@@ -7,6 +7,7 @@ import threading
 import glob
 import errno
 import time
+import pdb
 
 # class Base(object):
 class Base(object):
@@ -16,6 +17,7 @@ class Base(object):
         self.set_contact()
         self.set_freq()
         self.set_previous()
+        self._fldependent = False
 
     def set_method(self, method='scratch'):
          methods = ['scratch', 'incremental', 'dependent']
@@ -51,6 +53,7 @@ class Base(object):
          if self.method is 'dependent':
              self._check = self._check_dependent
              self._update = self._update_dependent
+             self._fldependent = True
 
     def _set_pathnames(self):
         name = self.__name__
@@ -206,12 +209,11 @@ class Base(object):
 
     def _check_dependent(self, e):
         p = e.args[0]['plugins']
-        if not self.dep in p:
-            raise Exception('{} plugin not present'.format(self.dep))
-        
-        if p[self.dep].state.isstate('up_to_date') \
-            and p[self.dep].d_mod != self.d_mod:
-                self.state.doupdate({'plugins': p})
+        #if not self.dep in p:
+        #    raise Exception('{} plugin not present'.format(self.dep))
+        #
+        if p[self.dep].d_mod != self.d_mod:
+            self.state.doupdate({'plugins': p})
         else:
             self.state.nonews()
         return
@@ -279,8 +281,11 @@ class Base(object):
 
     def _update_dependent(self, e):
         p = e.args[0]['plugins']
-        self.d_updating = p[self.dep].d_mod
-        self.state.finished({'plugins': p})
+        if p[self.dep].state.isstate('up_to_date'): 
+            self.d_updating = p[self.dep].d_mod
+            self.state.finished({'plugins': p})
+        else:
+            self.state.notfinished()
 
 
     def _update_links(self, e):
@@ -289,6 +294,8 @@ class Base(object):
 
         os.remove(self.l_mod)
         ndir = os.path.join(self.STORE, '{}{}'.format(self.__name__, self._timestamp()))
+        if self._fldependent:
+            ndir = plugins[self.dep].d_mod
         os.rename(self.d_updating, ndir)
         os.symlink(ndir, self.l_mod)
 
