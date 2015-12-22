@@ -114,6 +114,12 @@ def signal_handling(plugins):
 
 
 #######################################################################
+# set up global logging and scheduler
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+scheduler = BackgroundScheduler()
+
+
 def main():
 
     # get conf file from args
@@ -124,11 +130,6 @@ def main():
         configfile = 'scheduledb.ini'
     else:
         configfile = args.conf
-
-    # set up logging and scheduler
-    logging.basicConfig(level=logging.DEBUG)
-    logger = logging.getLogger(__name__)
-    scheduler = BackgroundScheduler()
 
     # read and set up paths
     config = configparser.ConfigParser()
