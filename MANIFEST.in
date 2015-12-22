@@ -1,3 +1,0 @@
-include scheduledb.py
-include baseplugin.py
-include config

@@ -16,6 +16,7 @@ import threading
 import imp
 import errno
 import fysom
+import argparse
 
 
 def update_status(status, fname, repo):
@@ -110,9 +111,19 @@ def signal_handling(plugins):
         else:
             raise
     return
+
+
 #######################################################################
-# main
-if __name__ == "__main__":
+def main():
+
+    # get conf file from args
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--conf', required=False, help='config file location')
+    args = parser.parse_args()
+    if args.conf is None:
+        configfile = 'scheduledb.ini'
+    else:
+        configfile = args.conf
 
     # set up logging and scheduler
     logging.basicConfig(level=logging.DEBUG)
@@ -121,7 +132,7 @@ if __name__ == "__main__":
 
     # read and set up paths
     config = configparser.ConfigParser()
-    config.read('./scheduledb.ini')
+    config.read(configfile)
     plugindir = config.get('paths', 'plugins')
     store = config.get('paths', 'store')
     links = config.get('paths', 'repository')
@@ -162,3 +173,7 @@ if __name__ == "__main__":
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
         logger.info('Cancelled')
+
+#######################################################################
+if __name__ == "__main__":
+    main()
