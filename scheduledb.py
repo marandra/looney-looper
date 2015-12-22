@@ -18,13 +18,13 @@ import errno
 import fysom
 
 
-def update_status(status, fname):
+def update_status(status, fname, repo):
     # header
     with open(fname, 'w') as fo:
         timestr = time.strftime("%d %b %Y %H:%M:%S", time.localtime())
         line = []
         line.append('BC2 Data    {}\n'.format(timestr))
-        line.append('Live data directory: /import/bc2/data/test\n\n')
+        line.append('Live data directory: {}\n\n'.format(os.path.abspath(repo)))
         line.append('{:<21s}{:<13s}{:<27s}{:<s}\n\n'.format(
             'Target', 'Status', 'Next check', 'Contact'))
         fo.write(''.join(line))
@@ -121,10 +121,10 @@ if __name__ == "__main__":
 
     # read and set up paths
     config = configparser.ConfigParser()
-    config.read('./config')
-    plugindir = config.get('paths', 'plugindir')
+    config.read('./scheduledb.ini')
+    plugindir = config.get('paths', 'plugins')
     store = config.get('paths', 'store')
-    links = config.get('paths', 'links')
+    links = config.get('paths', 'repository')
     logger.debug('Read paths from config file')
 
     # set up options
@@ -155,7 +155,7 @@ if __name__ == "__main__":
                 statuslist.append(p.status())
 
             statuslist.sort()
-            update_status(statuslist, 'status.log')
+            update_status(statuslist, 'status.log', links)
 
             signal_handling(plugins)
 
