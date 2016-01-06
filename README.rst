@@ -27,3 +27,18 @@ The program by default uses the configuration file in ~/databases/venv/lib/pytho
 It also received the location of and alternative config file as argument
 usage: scheduledb [-h] [-c conffile]
 python_installation/site-package/scheduledb/scheduledb.ini
+
+From source
+$ cd ~/source
+$ git clone http://gitlab/scheduledb
+$ python setup sdist
+
+Continue with the instructionis for installing using pip, replacing
+$ pip install scheduledb
+with
+$ pip install ~/source/scheduledb/dist/scheduledb-0.0.1.tar.gz
+look for the correct version
+
+Set up
+------
+The set up is done via a configurarion file read at running time. There is a default configurationfile loaded at run time. It is possible to pass and alternate file as argument.
