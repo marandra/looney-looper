@@ -9,4 +9,21 @@ What's New
 Usage
 -----
 
+Install
+-------
 
+Creating a directory structure consistent with the default configuraton file
+$ mkdir ~/databases
+$ mkdir ~/databases/.system
+$ mkdir ~/databases/.store
+$ mkdir ~/databases/.plugins
+$ cd ~/databases/.system
+$ virtualenv venv
+$ pip install scheduledb
+$ scheduledb
+
+The setup script run by pip will install the script in ~/databases/venv/bin/
+The program by default uses the configuration file in ~/databases/venv/lib/python2.7/site-packages/scheduledb/scheduledb.ini
+It also received the location of and alternative config file as argument
+usage: scheduledb [-h] [-c conffile]
+python_installation/site-package/scheduledb/scheduledb.ini

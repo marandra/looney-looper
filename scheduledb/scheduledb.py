@@ -17,6 +17,7 @@ import imp
 import errno
 import fysom
 import argparse
+import pkg_resources
 
 
 def update_status(status, fname, repo):
@@ -119,17 +120,17 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler()
 
-
 def main():
-
     # get conf file from args
+    configfile = pkg_resources.resource_filename("scheduledb", "scheduledb.ini")
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--conf', required=False, help='config file location')
     args = parser.parse_args()
-    if args.conf is None:
-        configfile = 'scheduledb.ini'
-    else:
+    if args.conf is not None:
         configfile = args.conf
+        logger.info('Reading configuration file: {}'.format(configfile))
+    else:
+        logger.info('Reading default configuration file: {}'.format(configfile))
 
     # read and set up paths
     config = configparser.ConfigParser()
@@ -137,10 +138,13 @@ def main():
     plugindir = config.get('paths', 'plugins')
     store = config.get('paths', 'store')
     links = config.get('paths', 'repository')
-    logger.debug('Read paths from config file')
+    logger.debug('Paths from config file:\n' \
+                 '  repository: {}\n' \
+                 '  store: {}\n' \
+                 '  plugindir: {}'.format(links, store, plugindir))
 
     # set up options
-    refreshtime = 5
+    refreshtime = int(config.get('advanced', 'refreshtime'))
     logger.debug('Refresh time: {} seconds'.format(refreshtime))
 
     try:
