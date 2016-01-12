@@ -1,6 +1,11 @@
 ScheduleDB
 ==========
+Marcelo Raschi (marcelo.raschi@unibas.ch)
+https://github.com/malandra/scheduledb
 
+
+Description
+-----------
 ScheduleDB is a system that schedule updates of databases based on the frequency and the scripts provided by the user. The parameters and the scripts are provided as python programs, which are loaded at the initial run of the system. The system takes care of the directory structure for the different versions of a database, and generates symbolic links to the current version as well as to other versions if requested by the user.
 
 What's New
@@ -8,6 +13,7 @@ What's New
 
 Usage
 -----
+Once install, the scheduledb scrip should be installed and in the path.
 
 Install
 -------
@@ -42,3 +48,16 @@ look for the correct version
 Set up
 ------
 The set up is done via a configurarion file read at running time. There is a default configurationfile loaded at run time. It is possible to pass and alternate file as argument.
+
+Getting plugins
+---------------
+Plugins are available from a git repository. After downloading, it might be necessary some configuration to adjust to particular needs, but should be a good start.
+They also work as a good starting point for developing new plugins.
+
+At the moment, the available plugins are 
+1) Uniprot
+https://git.scicore.unibas.ch/raschi/sdbplugin-uniprot
+2) PDB
+https://git.scicore.unibas.ch/raschi/sdbplugin-pdb
+3) igenomes
+https://git.scicore.unibas.ch/raschi/sdbplugin-igenomes

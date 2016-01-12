@@ -1,8 +1,7 @@
 #!/bin/env python
 from future import standard_library
-standard_library.install_aliases()
+# standard_library.install_aliases()
 from builtins import map
-
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 import configparser
@@ -26,7 +25,8 @@ def update_status(status, fname, repo):
         timestr = time.strftime("%d %b %Y %H:%M:%S", time.localtime())
         line = []
         line.append('BC2 Data    {}\n'.format(timestr))
-        line.append('Live data directory: {}\n\n'.format(os.path.abspath(repo)))
+        line.append('Live data directory: '
+                    '{}\n\n'.format(os.path.abspath(repo)))
         line.append('{:<21s}{:<13s}{:<27s}{:<s}\n\n'.format(
             'Target', 'Status', 'Next check', 'Contact'))
         fo.write(''.join(line))
@@ -50,7 +50,7 @@ def register_plugins(plugindir, store, links):
     ''' registration of plugins and scheduling of jobs '''
 
     pluginlist = list(map(os.path.basename,
-                     glob.glob(os.path.join(plugindir, '*.py'))))
+                      glob.glob(os.path.join(plugindir, '*.py'))))
     pluginlist = [p[:-3] for p in pluginlist]
 
     plugins = {}
@@ -120,17 +120,22 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler()
 
+
 def main():
     # get conf file from args
-    configfile = pkg_resources.resource_filename("scheduledb", "scheduledb.ini")
+    configfile = pkg_resources.resource_filename("scheduledb",
+                                                 "scheduledb.ini")
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--conf', required=False, help='config file location')
+    parser.add_argument('-c', '--conf', required=False,
+                        help='config file location')
     args = parser.parse_args()
     if args.conf is not None:
         configfile = args.conf
-        logger.info('Reading configuration file: {}'.format(configfile))
+        logger.info('Reading configuration file: '
+                    '{}'.format(configfile))
     else:
-        logger.info('Reading default configuration file: {}'.format(configfile))
+        logger.info('Reading default configuration file: '
+                    '{}'.format(configfile))
 
     # read and set up paths
     config = configparser.ConfigParser()
@@ -138,9 +143,9 @@ def main():
     plugindir = config.get('paths', 'plugins')
     store = config.get('paths', 'store')
     links = config.get('paths', 'repository')
-    logger.debug('Paths from config file:\n' \
-                 '  repository: {}\n' \
-                 '  store: {}\n' \
+    logger.debug('Paths from config file:\n'
+                 '  repository: {}\n'
+                 '  store: {}\n'
                  '  plugindir: {}'.format(links, store, plugindir))
 
     # set up options
