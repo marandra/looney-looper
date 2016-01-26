@@ -18,10 +18,6 @@ v0.2
 
 - Modified to use *pip* packaging system
 
-Usage
------
-Once installed, the *scheduledb* script should be installed and searchable in the path.
-
 Installation
 ------------
 Let's assume the following locations (more on this later):
@@ -53,3 +49,11 @@ The second step is to have a configuration file that is consistent with the dire
 
 If no configuration file is provided, scheduledb will use the default configuration file located at  *~/databases/venv/lib/python* <python-version> */site-packages/scheduledb/scheduledb.ini*
 
+Usage
+-----
+Once installed, the *scheduledb* script should be installed and searchable in the path.
+
+TODO (Section added during development releases)
+------------------------------------------------
+
+- add option to configure location of *signal* file

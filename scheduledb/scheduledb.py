@@ -90,9 +90,20 @@ def apply_statemachines(plugins):
 
 
 def signal_handling(plugins):
+    '''Reads a text file 'signal' and executes the instruction within.
+       Actions implemented:
+
+       :stop: Stops the execution, leaving a clean state for restart.
+       :check <pluginname>: Launches the check event for <pluginname>.
+
+       The program will read and execute the recognized instruction on the
+       first line of the file, ignoring the rest of the file. The file will
+       be deleted afterwards.
+    '''
+    pathsignal = '.'
     fnsignal = 'signal'
     try:
-        with open(fnsignal, 'r') as f:
+        with open(os.path.join(pathsignal, fnsignal), 'r') as f:
             line = f.readline()
         if 'stop' in line:
             os.remove(fnsignal)
@@ -113,6 +124,44 @@ def signal_handling(plugins):
             raise
     return
 
+def read_conf_param():
+    '''Gets parameters from default and user-provided configuration files.
+    '''
+
+    def get_params(conffile):
+        config = configparser.ConfigParser()
+        config.read(conffile)
+        section = 'paths'
+        if config.has_section(section):
+            for option in ['plugins', 'store', 'repository']:
+                if config.has_option(section, option):
+                    params[option] = config.get(section, option)
+        section = 'advanced'
+        if config.has_section(section):
+            for option in ['refreshtime']:
+                if config.has_option(section, option):
+                    params[option] = config.get(section, option)
+        logger.debug('Params read from configuration file:\n'
+                     '    {}'.format(params))
+        return params
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--conf', required=False,
+                        help='config file location')
+    args = parser.parse_args()
+    usrconffile = args.conf
+    dflconffile = pkg_resources.resource_filename("scheduledb",
+                                                 "scheduledb.ini")
+    params = {}
+    params.update(get_params(dflconffile))
+    logger.info('Reading default configuration file: '
+                    '{}'.format(dflconffile))
+    if usrconffile is not None:
+        params.update(get_params(usrconffile))
+        logger.info('Reading configuration file: '
+                    '{}'.format(usrconffile))
+    return params
+
 
 #######################################################################
 # set up global logging and scheduler
@@ -122,35 +171,46 @@ scheduler = BackgroundScheduler()
 
 
 def main():
+
     # get conf file from args
-    configfile = pkg_resources.resource_filename("scheduledb",
-                                                 "scheduledb.ini")
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--conf', required=False,
-                        help='config file location')
-    args = parser.parse_args()
-    if args.conf is not None:
-        configfile = args.conf
-        logger.info('Reading configuration file: '
-                    '{}'.format(configfile))
-    else:
-        logger.info('Reading default configuration file: '
-                    '{}'.format(configfile))
+    #dflconfigfile = pkg_resources.resource_filename("scheduledb",
+    #                                            "scheduledb.ini")
+    #parser = argparse.ArgumentParser()
+    #parser.add_argument('-c', '--conf', required=False,
+    #                    help='config file location')
+    #args = parser.parse_args()
+    param = read_conf_param()
+    try:
+        refreshtime = int(param['refreshtime'])
+        plugindir = param['plugins']
+        store = param['store']
+        links = param['repository']
+    except KeyError:
+        raise Exception("Missing parameters in configuration files")
+
+
+    #if args.conf is not None:
+    #    dflconfigfile = args.conf
+    #    logger.info('Reading configuration file: '
+    #                '{}'.format(dflconfigfile))
+    #else:
+    #    logger.info('Reading default configuration file: '
+    #                '{}'.format(dflconfigfile))
 
     # read and set up paths
-    config = configparser.ConfigParser()
-    config.read(configfile)
-    plugindir = config.get('paths', 'plugins')
-    store = config.get('paths', 'store')
-    links = config.get('paths', 'repository')
-    logger.debug('Paths from config file:\n'
-                 '  repository: {}\n'
-                 '  store: {}\n'
-                 '  plugindir: {}'.format(links, store, plugindir))
+    #config = configparser.ConfigParser()
+    #config.read(dflconfigfile)
+    #plugindir = config.get('paths', 'plugins')
+    #store = config.get('paths', 'store')
+    #links = config.get('paths', 'repository')
+    #logger.debug('Paths from config file:\n'
+    #             '  repository: {}\n'
+    #             '  store: {}\n'
+    #             '  plugindir: {}'.format(links, store, plugindir))
 
     # set up options
-    refreshtime = int(config.get('advanced', 'refreshtime'))
-    logger.debug('Refresh time: {} seconds'.format(refreshtime))
+    #refreshtime = int(config.get('advanced', 'refreshtime'))
+    #logger.debug('Refresh time: {} seconds'.format(refreshtime))
 
     try:
         # initialization
