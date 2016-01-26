@@ -1,6 +1,6 @@
 #!/bin/env python
 from future import standard_library
-# standard_library.install_aliases()
+standard_library.install_aliases()
 from builtins import map
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
