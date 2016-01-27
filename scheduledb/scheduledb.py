@@ -20,7 +20,18 @@ import pkg_resources
 
 
 def update_status(status, fname, repo):
-    # header
+    '''Generates status file.
+       Parameters:
+      
+       :status: list of text string with the status info
+       :fname: file name of the status file
+       :repo: location of the database repository
+
+    Generate status file with information about the running plugins,
+    its current status, its next scheduled check,
+    and the name and email of the contact.
+    '''
+
     with open(fname, 'w') as fo:
         timestr = time.strftime("%d %b %Y %H:%M:%S", time.localtime())
         line = []
@@ -30,16 +41,21 @@ def update_status(status, fname, repo):
         line.append('{:<21s}{:<13s}{:<27s}{:<s}\n\n'.format(
             'Target', 'Status', 'Next check', 'Contact'))
         fo.write(''.join(line))
-
         for line in status:
             fo.write(line + '\n')
 
 
 def schedule_plugins(plugins):
-    ''' scheduling of jobs '''
+    '''Schedules jobs based on plugins.
+       Parameters:
+
+       :plugins: dictionary of the detected plugins
+
+       This routine adds jobs to the scheduler based on the frequency set in
+       the plugin.
+    '''
 
     for name, p in list(plugins.items()):
-        # register jobs
         scheduler.add_job(
             p.state.checkifupdate, 'cron', name=name,
             args=[{'plugins': plugins}],
@@ -47,24 +63,43 @@ def schedule_plugins(plugins):
 
 
 def register_plugins(plugindir, store, links):
-    ''' registration of plugins and scheduling of jobs '''
+    '''Registers detected plugins.
+       Parameters:
+
+       :plugindir: location of the plugin directory
+       :store: location of the time-tagged database folders
+       :links: location of the repository (contining sym links to
+               latests version of databases
+
+       This routine scans the plugin directory to find valid plugins
+       (any *.py file), generating a dictionary with the detected plugins.
+       Each plugin is loaded as a module by the *imp.load_source* method,
+       then called the create() and init() methods of the plugin.
+    '''
 
     pluginlist = list(map(os.path.basename,
                       glob.glob(os.path.join(plugindir, '*.py'))))
     pluginlist = [p[:-3] for p in pluginlist]
-
     plugins = {}
     for n in pluginlist:
-        logger.info('Found "{}"'.format(n))
+        logger.info('Found "{}" plugin'.format(n))
         module = imp.load_source(n, os.path.join(plugindir, n + '.py'))
         plugins[n] = module.create()
         plugins[n].init(name=n, store=store, links=links)
-
     return plugins
 
 
 def apply_statemachines(plugins):
-    ''' states and transitions for state machine '''
+    '''Defines states and transitions for state machine.
+       Parameters:
+   
+       :plugins: dictionary with plugins
+
+       This routine defines the following posible states for the plugins, 
+       the events for the transitions, and the actions to take before or
+       after entering a new state (see the documentation of Fysom for more
+       details).
+    '''
 
     initstate = 'up_to_date'
     events = [
@@ -75,7 +110,6 @@ def apply_statemachines(plugins):
        {'name': 'finished', 'src': 'updating', 'dst': 'up_to_date'},
        {'name': 'notfinished', 'src': 'updating', 'dst': 'failed_update'},
     ]
-
     for name, p in list(plugins.items()):
         callbacks = {
             'onaftercheckifupdate': p._check,
@@ -172,13 +206,6 @@ scheduler = BackgroundScheduler()
 
 def main():
 
-    # get conf file from args
-    #dflconfigfile = pkg_resources.resource_filename("scheduledb",
-    #                                            "scheduledb.ini")
-    #parser = argparse.ArgumentParser()
-    #parser.add_argument('-c', '--conf', required=False,
-    #                    help='config file location')
-    #args = parser.parse_args()
     param = read_conf_param()
     try:
         refreshtime = int(param['refreshtime'])
@@ -187,30 +214,6 @@ def main():
         links = param['repository']
     except KeyError:
         raise Exception("Missing parameters in configuration files")
-
-
-    #if args.conf is not None:
-    #    dflconfigfile = args.conf
-    #    logger.info('Reading configuration file: '
-    #                '{}'.format(dflconfigfile))
-    #else:
-    #    logger.info('Reading default configuration file: '
-    #                '{}'.format(dflconfigfile))
-
-    # read and set up paths
-    #config = configparser.ConfigParser()
-    #config.read(dflconfigfile)
-    #plugindir = config.get('paths', 'plugins')
-    #store = config.get('paths', 'store')
-    #links = config.get('paths', 'repository')
-    #logger.debug('Paths from config file:\n'
-    #             '  repository: {}\n'
-    #             '  store: {}\n'
-    #             '  plugindir: {}'.format(links, store, plugindir))
-
-    # set up options
-    #refreshtime = int(config.get('advanced', 'refreshtime'))
-    #logger.debug('Refresh time: {} seconds'.format(refreshtime))
 
     try:
         # initialization
