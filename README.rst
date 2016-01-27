@@ -36,13 +36,18 @@ The first step is to create the desired directory structure:
   $ mkdir ~/databases/.store
   $ mkdir ~/databases/.plugins
   $ cd ~/databases/.system
+
+Create a virtual environment for pip-installing *scheduledb* and its dependencies
+
+.. code-block::
+
   $ virtualenv venv
   $ pip install scheduledb
-  $ scheduledb
 
 The setup script run by pip will install the script in *~/databases/venv/bin/* and all the necessary dependencies
 
-The second step is to have a configuration file that is consistent with the directory structure. The program takes as optionnal argument a configuration file
+The second step is to have a configuration file that is consistent with the directory structure.
+The program takes as an optional argument a configuration file
 
 -h              print this message
 -c configfile   location of the configuration file to use

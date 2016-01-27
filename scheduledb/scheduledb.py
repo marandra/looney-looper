@@ -110,7 +110,7 @@ def signal_handling(plugins):
             raise Exception("Received 'stop' signal")
         elif 'check' in line.split():
             os.remove(fnsignal)
-            pname = line.split()[0]
+            pname = line.split()[1]
             if pname in plugins:
                 logger.info('Signal-triggered "{}" checking'.format(pname))
                 if plugins[pname].state.can('checkifupdate'):
