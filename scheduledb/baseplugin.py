@@ -2,6 +2,7 @@ from builtins import object
 import logging
 import os
 import datetime
+import abc
 import shutil
 import threading
 import glob
@@ -10,8 +11,11 @@ import time
 
 # class Base(object):
 class Base(object):
+    __metaclass__ = abc.ABCMeta
 
-    def __init__(self):
+    def __init__(self, name):
+        self.__name__ = name
+        self.logger = logging.getLogger(self.__name__)
         self.set_method()
         self.set_contact()
         self.set_freq()
@@ -21,8 +25,9 @@ class Base(object):
     def set_method(self, method='scratch'):
          methods = ['scratch', 'incremental', 'dependent']
          if method not in methods:
-             raise Exception('Update method not recognized. '\
+             self.logger.error('Invalid update method. '\
                  'Currently recognized: {}'.format(methods))
+             raise Exception('Plugin option invalid')
          else:
              self.method = method
 
@@ -40,7 +45,8 @@ class Base(object):
 
     def _check_freq(self):
         if not any([self.s, self.m, self.h, self.d, self.dow]):
-            raise Exception("No update frequency provided")
+            self.logger.error("No update frequency provided")
+            raise Exception('Plugin option invalid')
 
     def _set_functions(self):
          if self.method is 'scratch':
@@ -58,8 +64,9 @@ class Base(object):
         name = self.__name__
         if self.method is 'dependent':
             if len(name.split('-')) != 2:
-             raise Exception('Incorrect format of plugin file name {}'
-                 'for "dependent" update method'.format(name))
+                self.logger.error('Incorrect format of plugin file name {}'
+                    'for "dependent" update method'.format(name))
+                raise Exception('Plugin option invalid')
             self.dep = name.split('-')[0]
             self.mod = name.split('-')[1]
         else:
@@ -102,13 +109,13 @@ class Base(object):
         self._create_frozen_links()
         # No updating or checking links
         if os.path.exists(self.d_checking):
-            raise Exception('Unclean inital state. '
-                            'Checking directory exists')
+            self.logger.error('"checking" directory exists')
+            raise Exception('Unclean inital state')
         if os.path.exists(self.d_updating):
-            raise Exception('Unclean inital state. '
-                            'Updating directory exists. '
-                            'If this is a continuation of an interrupted update, '
-                            'rename "updating" to "updating-cont".')
+            self.logger.error('"updating" directory exists. '
+                'If this is a continuation of an interrupted update, '
+                'rename "updating" to "updating-cont".')
+            raise Exception('Unclean inital state')
         # Initialize missing symlinks
         alldirs = glob.glob(os.path.join(self.STORE, self.dep + '_*'))
         listing = list(set(alldirs) - set(self._d_frozen()))
@@ -151,8 +158,6 @@ class Base(object):
 
     def init(self, name, store='INIT_ME', links='INIT_ME'):
         self._check_freq()
-        self.__name__ = name
-        self.logger = logging.getLogger(self.__name__)
         self._set_functions()
         self._set_pathnames()
      
@@ -256,7 +261,6 @@ class Base(object):
         plugins = e.args[0]['plugins']
         wait = False
 
-
         path = self.d_updating
         pathcont = '{}-{}'.format(path, 'cont')
         if os.path.exists(pathcont):
@@ -328,9 +332,11 @@ class Base(object):
     def check(self):
         return True
 
+    @abc.abstractmethod
     def update(self, plugins):
-        raise Exception('NotImplemented. '
-                        'The method needs to be implemented in subclasses')
+        '''database update process
+        '''
+        return
 
     def _postprocess(self, e):
         plugins = e.args[0]['plugins']

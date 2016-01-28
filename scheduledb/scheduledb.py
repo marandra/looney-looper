@@ -83,9 +83,13 @@ def register_plugins(plugindir, store, links):
     plugins = {}
     for n in pluginlist:
         logger.info('Found "{}" plugin'.format(n))
-        module = imp.load_source(n, os.path.join(plugindir, n + '.py'))
-        plugins[n] = module.create()
-        plugins[n].init(name=n, store=store, links=links)
+        try:
+            module = imp.load_source(n, os.path.join(plugindir, n + '.py'))
+            plugins[n] = module.create(name=n)
+            plugins[n].init(name=n, store=store, links=links)
+        except Exception as e:
+            logger.exception("Problem loading plugin {}. Skipped.".format(n))
+            plugins.pop(n, None)
     return plugins
 
 
@@ -213,7 +217,8 @@ def main():
         store = param['store']
         links = param['repository']
     except KeyError:
-        raise Exception("Missing parameters in configuration files")
+        logger.exception("Missing parameters in configuration files")
+        raise
 
     try:
         # initialization
@@ -222,7 +227,7 @@ def main():
         plugins = register_plugins(plugindir, store, links)
         machines = apply_statemachines(plugins)
         schedule_plugins(plugins)
-
+        # infinite loop
         while True:
             time.sleep(refreshtime)
             with open('schedulerjobs.log', 'w') as fo:
