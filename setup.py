@@ -17,7 +17,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='scheduledb',
-    version='0.2.2.dev2',
+    version='0.3.0.dev0',
     description='Flexible scheduler for automated update of databases',
     long_description=long_description,
     url='https://wiki.biozentrum.unibas.ch/display/scicore/' \
