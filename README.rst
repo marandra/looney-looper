@@ -14,6 +14,10 @@ The system takes care of the directory structure for the different versions of a
 
 What's New
 ----------
+v0.3
+
+- Invalid plugins are skipped, instead of stopping the execution.
+
 v0.2
 
 - Modified to use *pip* packaging system
@@ -58,7 +62,28 @@ Usage
 -----
 Once installed, the *scheduledb* script should be installed and searchable in the path.
 
+Configuration file
+------------------
+
+:section *[paths]*:
+
+    -repository
+
+    -links
+
+    -plugins
+
+    -signal
+
+    -log
+
+:section *[advanced]*:
+
+    -refreshtime
+
 TODO (Section added during development releases)
 ------------------------------------------------
 
 - add option to configure location of *signal* file
+- add option to configure location of logfiles
+- log file per plugin
