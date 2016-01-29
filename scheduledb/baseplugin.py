@@ -9,6 +9,7 @@ import glob
 import errno
 import time
 
+
 # class Base(object):
 class Base(object):
     __metaclass__ = abc.ABCMeta
@@ -23,18 +24,18 @@ class Base(object):
         self._fldependent = False
 
     def set_method(self, method='scratch'):
-         methods = ['scratch', 'incremental', 'dependent']
-         if method not in methods:
-             self.logger.error('Invalid update method. '\
-                 'Currently recognized: {}'.format(methods))
-             raise Exception('Plugin option invalid')
-         else:
-             self.method = method
+        methods = ['scratch', 'incremental', 'dependent']
+        if method not in methods:
+            self.logger.error('Invalid update method. '
+                              'Currently recognized: {}'.format(methods))
+            raise Exception('Plugin option invalid')
+        else:
+            self.method = method
 
     def set_previous(self, flag=False):
-         self.previous = False
-         if flag:
-             self.previous = True
+        self.previous = False
+        if flag:
+            self.previous = True
 
     def set_contact(self, name='None', email='None'):
         self.contact = name
@@ -49,29 +50,30 @@ class Base(object):
             raise Exception('Plugin option invalid')
 
     def _set_functions(self):
-         if self.method is 'scratch':
-             self._check = self._check_scratch
-             self._update = self._update_scratch
-         if self.method is 'incremental':
-             self._check = self._check_scratch
-             self._update = self._update_incremental
-         if self.method is 'dependent':
-             self._check = self._check_dependent
-             self._update = self._update_dependent
-             self._fldependent = True
+        if self.method is 'scratch':
+            self._check = self._check_scratch
+            self._update = self._update_scratch
+        if self.method is 'incremental':
+            self._check = self._check_scratch
+            self._update = self._update_incremental
+        if self.method is 'dependent':
+            self._check = self._check_dependent
+            self._update = self._update_dependent
+            self._fldependent = True
 
     def _set_pathnames(self):
         name = self.__name__
         if self.method is 'dependent':
             if len(name.split('-')) != 2:
-                self.logger.error('Incorrect format of plugin file name {}'
+                self.logger.error(
+                    'Incorrect format of plugin file name {}'
                     'for "dependent" update method'.format(name))
                 raise Exception('Plugin option invalid')
             self.dep = name.split('-')[0]
             self.mod = name.split('-')[1]
         else:
-           self.dep = name
-           self.mod = 'latest'
+            self.dep = name
+            self.mod = 'latest'
         return
 
     def _initial_state_clean(self):
@@ -90,7 +92,7 @@ class Base(object):
                 if e.errno != errno.ENOENT:
                     raise
 
-        def init_symlinks (self, sl, listing):
+        def init_symlinks(self, sl, listing):
             ndir = os.path.join(self.LINKS, self.dep)
             makedirs_existsok(ndir)
             try:
@@ -100,7 +102,8 @@ class Base(object):
                     os.symlink('dummy', sl)
             finally:
                 if os.readlink(sl) not in listing:
-                    ndir = os.path.join(self.STORE, self.dep + '_000000T000000')
+                    ndir = os.path.join(self.STORE,
+                                        self.dep + '_000000T000000')
                     makedirs_existsok(ndir)
                     remove_nexistok(sl)
                     os.symlink(ndir, sl)
@@ -112,7 +115,8 @@ class Base(object):
             self.logger.error('"checking" directory exists')
             raise Exception('Unclean inital state')
         if os.path.exists(self.d_updating):
-            self.logger.error('"updating" directory exists. '
+            self.logger.error(
+                '"updating" directory exists. '
                 'If this is a continuation of an interrupted update, '
                 'rename "updating" to "updating-cont".')
             raise Exception('Unclean inital state')
@@ -122,7 +126,6 @@ class Base(object):
         init_symlinks(self, self.l_mod, listing)
         if self.previous:
             init_symlinks(self, self.l_prev, listing)
-
         return True
 
     def _refreshlinks(self, e=None):
@@ -151,7 +154,8 @@ class Base(object):
         for lf in self._l_frozen():
             _remove_nexistok(lf)
         for df in self._d_frozen():
-            lf = os.path.join(self.LINKS, self.dep, 'frozen_' + df.split('_')[-1])
+            lf = os.path.join(self.LINKS, self.dep,
+                              'frozen_' + df.split('_')[-1])
             _remove_nexistok(lf)
             os.symlink(df, lf)
         return
@@ -160,30 +164,27 @@ class Base(object):
         self._check_freq()
         self._set_functions()
         self._set_pathnames()
-     
         self.FROZEN = 'FROZEN'
         self.STORE = store
         self.LINKS = links
         self.l_mod = os.path.join(self.LINKS, self.dep, self.mod)
         self.d_mod = ''
-        self.d_updating = os.path.join(self.STORE,
-                                       '{}-{}'.format(self.__name__, 'updating'))
-        self.d_checking = os.path.join(self.STORE,
-                                       '{}-{}'.format(self.__name__, 'checking'))
-        self.l_prev = os.path.join(self.LINKS, self.dep,
-                                       '{}-{}'.format(self.mod, 'prev'))
+        self.d_updating = os.path.join(self.STORE, '{}-{}'
+                                       .format(self.__name__, 'updating'))
+        self.d_checking = os.path.join(self.STORE, '{}-{}'
+                                       .format(self.__name__, 'checking'))
+        self.l_prev = os.path.join(self.LINKS, self.dep, '{}-{}'
+                                       .format(self.mod, 'prev'))
         self.d_prev = ''
-     
         # check start up state
         try:
             self._initial_state_clean()
         except:
             raise
-
         self._refreshlinks()
 
     def logstate(self, e):
-        self.logger.info('Current state: ' + e.dst) 
+        self.logger.info('Current state: ' + e.dst)
 
     def _timestamp(self):
         return datetime.datetime.now().strftime('_%y%m%dT%H%M%S')
@@ -222,10 +223,8 @@ class Base(object):
             self.state.nonews()
         return
 
-
     def _update_scratch(self, e):
         ''' create new directory and launch run() function in a new thread '''
-
 
         def run(self, plugins):
             if not self.update(plugins):
@@ -281,22 +280,21 @@ class Base(object):
             run_thread.setDaemon(True)
         run_thread.start()
 
-
     def _update_dependent(self, e):
         p = e.args[0]['plugins']
-        if p[self.dep].state.isstate('up_to_date'): 
+        if p[self.dep].state.isstate('up_to_date'):
             self.d_updating = p[self.dep].d_mod
             self.state.finished({'plugins': p})
         else:
             self.state.notfinished()
-
 
     def _update_links(self, e):
         plugins = e.args[0]['plugins']
         self._refreshlinks()
 
         os.remove(self.l_mod)
-        ndir = os.path.join(self.STORE, '{}{}'.format(self.__name__, self._timestamp()))
+        ndir = os.path.join(self.STORE,
+                            '{}{}'.format(self.__name__, self._timestamp()))
         if self._fldependent:
             ndir = plugins[self.dep].d_mod
         os.rename(self.d_updating, ndir)
@@ -310,7 +308,8 @@ class Base(object):
             for name in plugins:
                 if name == self.__name__:
                     continue
-                if self.d_prev == plugins[name].d_prev or self.d_prev == plugins[name].d_mod: 
+                if self.d_prev == plugins[name].d_prev or \
+                   self.d_prev == plugins[name].d_mod:
                     clear = False
             if self.d_mod != self.d_prev and not frozen and clear:
                     shutil.rmtree(self.d_prev)
@@ -320,14 +319,14 @@ class Base(object):
             for name in plugins:
                 if name == self.__name__:
                     continue
-                if self.d_mod == plugins[name].d_prev or self.d_mod == plugins[name].d_mod: 
+                if self.d_mod == plugins[name].d_prev or \
+                   self.d_mod == plugins[name].d_mod:
                     clear = False
             if not frozen and clear:
                     shutil.rmtree(self.d_mod)
 
         self._refreshlinks()
         self._create_frozen_links()
-
 
     def check(self):
         return True
@@ -344,4 +343,3 @@ class Base(object):
 
     def postprocess(self, plugins):
         pass
-

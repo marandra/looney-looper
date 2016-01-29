@@ -22,7 +22,7 @@ import pkg_resources
 def update_status(status, fname, repo):
     '''Generates status file.
        Parameters:
-      
+
        :status: list of text string with the status info
        :fname: file name of the status file
        :repo: location of the database repository
@@ -96,10 +96,10 @@ def register_plugins(plugindir, store, links):
 def apply_statemachines(plugins):
     '''Defines states and transitions for state machine.
        Parameters:
-   
+
        :plugins: dictionary with plugins
 
-       This routine defines the following posible states for the plugins, 
+       This routine defines the following posible states for the plugins,
        the events for the transitions, and the actions to take before or
        after entering a new state (see the documentation of Fysom for more
        details).
@@ -162,6 +162,7 @@ def signal_handling(plugins):
             raise
     return
 
+
 def read_conf_param():
     '''Gets parameters from default and user-provided configuration files.
     '''
@@ -188,12 +189,12 @@ def read_conf_param():
                         help='config file location')
     args = parser.parse_args()
     usrconffile = args.conf
-    dflconffile = pkg_resources.resource_filename("scheduledb",
-                                                 "scheduledb.ini")
+    dflconffile = pkg_resources.resource_filename('scheduledb',
+                                                  'scheduledb.ini')
     params = {}
     params.update(get_params(dflconffile))
     logger.info('Reading default configuration file: '
-                    '{}'.format(dflconffile))
+                '{}'.format(dflconffile))
     if usrconffile is not None:
         params.update(get_params(usrconffile))
         logger.info('Reading configuration file: '
