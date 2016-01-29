@@ -175,7 +175,8 @@ def read_conf_param():
         config.read(conffile)
         section = 'paths'
         if config.has_section(section):
-            for option in ['plugins', 'store', 'repository']:
+            for option in ['plugins', 'store', 'repository', 'logfile',
+                           'signalfile']:
                 if config.has_option(section, option):
                     params[option] = config.get(section, option)
         section = 'advanced'
@@ -183,19 +184,20 @@ def read_conf_param():
             for option in ['refreshtime', 'loglevel']:
                 if config.has_option(section, option):
                     params[option] = config.get(section, option)
-        #logger.debug('Params read from configuration file:\n'
-        #             '    {}'.format(params))
         return params
 
-    #def check_params(params):
-    #    '''insert any necessary check of parameters in this routine.
-    #    '''
-    #    
-    #    params['loglevel'] = params['loglevel'].upper()
-    #    if params['loglevel'] not in ['INFO', 'DEBUG']:
-    #        params['loglevel'] = 'DEBUG'
-    #    
-    #    return params
+    def check_params(params):
+        '''insert any necessary check of parameters in this routine.
+        '''
+        params['loglevel'] = params['loglevel'].upper()
+        if params['loglevel'] not in ['INFO', 'DEBUG', 'WARNING',
+                                      ' ERROR','CRITICAL']:
+            raise Exception('Invalid value for "loglevel" option.')
+        params['refreshtime'] = int(params['refreshtime'])
+        if params['refreshtime'] < 1:
+            raise Exception('Invalid value for "refreshtime" option.')
+        return params
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--conf', required=False,
                         help='config file location')
@@ -205,25 +207,24 @@ def read_conf_param():
     dflconffile = pkg_resources.resource_filename('scheduledb',
                                                   'scheduledb.ini')
     params = {}
-    params.update(get_params(dflconffile))
-    #logger.info('Reading default configuration file: '
-    #            '{}'.format(dflconffile))
+    params.update(check_params(get_params(dflconffile)))
     if usrconffile is not None:
-        params.update(get_params(usrconffile))
-        #logger.info('Reading configuration file: '
-        #            '{}'.format(usrconffile))
+        params.update(check_params(get_params(usrconffile)))
+        params['user config'] = usrconffile
+
     return params
 
 
-def setup_custom_logger(name, level):
-    formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - '
-                                      '%(module)s - %(message)s')
-    handler = logging.FileHandler('scheduledb.log.debug')
+def setup_custom_logger(name, level, filename):
+    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-5s '
+                                      '%(name)-21s %(message)s')
+    handler = logging.FileHandler(filename)
     handler.setFormatter(formatter)
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.addHandler(handler)
     return logger
+
 #######################################################################
 
 def main():
@@ -231,7 +232,9 @@ def main():
 
     # pre-initialization
     param = read_conf_param()
-    logger = setup_custom_logger(__name__,'DEBUG')
+    logger = setup_custom_logger('', param['loglevel'], param['logfile'])
+    logger.debug('Params read from configuration file:\n'
+                 '    {}'.format(param))
     global scheduler
     scheduler = BackgroundScheduler()
 
@@ -246,13 +249,12 @@ def main():
 
     try:
         # initialization
-        logger.info('Started')
-        logger.debug('Test DEBUG')
+        logger.info('Scheduledb started')
         scheduler.start()
         plugins = register_plugins(plugindir, store, links)
         machines = apply_statemachines(plugins)
         schedule_plugins(plugins)
-        # infinite loop
+        # control loop
         while True:
             time.sleep(refreshtime)
             with open('schedulerjobs.log', 'w') as fo:
@@ -275,8 +277,5 @@ def main():
 
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
-        logger.info('===== Interrupted =====')
-
-#######################################################################
-#if __name__ == "__main__":
-#    main()
+        logger.info('===== Shut down =====')
+        logging.shutdown()
