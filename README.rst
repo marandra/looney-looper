@@ -79,7 +79,9 @@ Configuration file
 
 :section *[advanced]*:
 
-    -refreshtime
+    -refreshtime: sleep time of the control loop, in seconds.
+
+    -loglevel: options DEBUG, INFO, WARNING
 
 TODO (Section added during development releases)
 ------------------------------------------------

@@ -26,9 +26,8 @@ class Base(object):
     def set_method(self, method='scratch'):
         methods = ['scratch', 'incremental', 'dependent']
         if method not in methods:
-            self.logger.error('Invalid update method. '
-                              'Currently recognized: {}'.format(methods))
-            raise Exception('Plugin option invalid')
+            raise Exception('Invalid update method. '
+                  'Currently recognized: {}'.format(methods))
         else:
             self.method = method
 
@@ -46,8 +45,7 @@ class Base(object):
 
     def _check_freq(self):
         if not any([self.s, self.m, self.h, self.d, self.dow]):
-            self.logger.error("No update frequency provided")
-            raise Exception('Plugin option invalid')
+            raise Exception("No update frequency provided")
 
     def _set_functions(self):
         if self.method is 'scratch':
@@ -65,10 +63,8 @@ class Base(object):
         name = self.__name__
         if self.method is 'dependent':
             if len(name.split('-')) != 2:
-                self.logger.error(
-                    'Incorrect format of plugin file name {}'
+                raise Exception('Incorrect format of plugin filename {} '
                     'for "dependent" update method'.format(name))
-                raise Exception('Plugin option invalid')
             self.dep = name.split('-')[0]
             self.mod = name.split('-')[1]
         else:
@@ -112,14 +108,13 @@ class Base(object):
         self._create_frozen_links()
         # No updating or checking links
         if os.path.exists(self.d_checking):
-            self.logger.error('"checking" directory exists')
-            raise Exception('Unclean inital state')
+            raise Exception('Unclean inital state: '
+                '"checking" directory exists')
         if os.path.exists(self.d_updating):
-            self.logger.error(
+            raise Exception('Unclean inital state: '
                 '"updating" directory exists. '
                 'If this is a continuation of an interrupted update, '
                 'rename "updating" to "updating-cont".')
-            raise Exception('Unclean inital state')
         # Initialize missing symlinks
         alldirs = glob.glob(os.path.join(self.STORE, self.dep + '_*'))
         listing = list(set(alldirs) - set(self._d_frozen()))

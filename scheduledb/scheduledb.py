@@ -56,6 +56,7 @@ def schedule_plugins(plugins):
     '''
 
     for name, p in list(plugins.items()):
+        global scheduler
         scheduler.add_job(
             p.state.checkifupdate, 'cron', name=name,
             args=[{'plugins': plugins}],
@@ -77,6 +78,7 @@ def register_plugins(plugindir, store, links):
        then called the create() and init() methods of the plugin.
     '''
 
+    logger = logging.getLogger(__name__)
     pluginlist = list(map(os.path.basename,
                       glob.glob(os.path.join(plugindir, '*.py'))))
     pluginlist = [p[:-3] for p in pluginlist]
@@ -165,6 +167,7 @@ def signal_handling(plugins):
 
 def read_conf_param():
     '''Gets parameters from default and user-provided configuration files.
+       Checks the validity of the parameters.
     '''
 
     def get_params(conffile):
@@ -177,41 +180,61 @@ def read_conf_param():
                     params[option] = config.get(section, option)
         section = 'advanced'
         if config.has_section(section):
-            for option in ['refreshtime']:
+            for option in ['refreshtime', 'loglevel']:
                 if config.has_option(section, option):
                     params[option] = config.get(section, option)
-        logger.debug('Params read from configuration file:\n'
-                     '    {}'.format(params))
+        #logger.debug('Params read from configuration file:\n'
+        #             '    {}'.format(params))
         return params
 
+    #def check_params(params):
+    #    '''insert any necessary check of parameters in this routine.
+    #    '''
+    #    
+    #    params['loglevel'] = params['loglevel'].upper()
+    #    if params['loglevel'] not in ['INFO', 'DEBUG']:
+    #        params['loglevel'] = 'DEBUG'
+    #    
+    #    return params
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--conf', required=False,
                         help='config file location')
     args = parser.parse_args()
+
     usrconffile = args.conf
     dflconffile = pkg_resources.resource_filename('scheduledb',
                                                   'scheduledb.ini')
     params = {}
     params.update(get_params(dflconffile))
-    logger.info('Reading default configuration file: '
-                '{}'.format(dflconffile))
+    #logger.info('Reading default configuration file: '
+    #            '{}'.format(dflconffile))
     if usrconffile is not None:
         params.update(get_params(usrconffile))
-        logger.info('Reading configuration file: '
-                    '{}'.format(usrconffile))
+        #logger.info('Reading configuration file: '
+        #            '{}'.format(usrconffile))
     return params
 
 
+def setup_custom_logger(name, level):
+    formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - '
+                                      '%(module)s - %(message)s')
+    handler = logging.FileHandler('scheduledb.log.debug')
+    handler.setFormatter(formatter)
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+    return logger
 #######################################################################
-# set up global logging and scheduler
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-scheduler = BackgroundScheduler()
-
 
 def main():
 
+
+    # pre-initialization
     param = read_conf_param()
+    logger = setup_custom_logger(__name__,'DEBUG')
+    global scheduler
+    scheduler = BackgroundScheduler()
+
     try:
         refreshtime = int(param['refreshtime'])
         plugindir = param['plugins']
@@ -224,6 +247,7 @@ def main():
     try:
         # initialization
         logger.info('Started')
+        logger.debug('Test DEBUG')
         scheduler.start()
         plugins = register_plugins(plugindir, store, links)
         machines = apply_statemachines(plugins)
@@ -251,8 +275,8 @@ def main():
 
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
-        logger.info('Cancelled')
+        logger.info('===== Interrupted =====')
 
 #######################################################################
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+#    main()
