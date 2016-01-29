@@ -129,7 +129,7 @@ def apply_statemachines(plugins):
                                'callbacks': callbacks})
 
 
-def signal_handling(plugins):
+def signal_handling(plugins, filename):
     '''Reads a text file 'signal' and executes the instruction within.
        Actions implemented:
 
@@ -140,16 +140,16 @@ def signal_handling(plugins):
        first line of the file, ignoring the rest of the file. The file will
        be deleted afterwards.
     '''
-    pathsignal = '.'
-    fnsignal = 'signal'
+    logger = logging.getLogger(__name__)
     try:
-        with open(os.path.join(pathsignal, fnsignal), 'r') as f:
+        with open(filename, 'r') as f:
             line = f.readline()
+        os.remove(filename)
         if 'stop' in line:
-            os.remove(fnsignal)
+#            os.remove(fnsignal)
             raise Exception("Received 'stop' signal")
         elif 'check' in line.split():
-            os.remove(fnsignal)
+#            os.remove(fnsignal)
             pname = line.split()[1]
             if pname in plugins:
                 logger.info('Signal-triggered "{}" checking'.format(pname))
@@ -273,7 +273,7 @@ def main():
             statuslist.sort()
             update_status(statuslist, 'status.log', links)
 
-            signal_handling(plugins)
+            signal_handling(plugins, param['signalfile'])
 
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
