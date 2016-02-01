@@ -6,7 +6,6 @@ import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 import configparser
 import time
-import datetime
 import sys
 import os
 import shutil
@@ -18,12 +17,11 @@ import fysom
 import argparse
 import pkg_resources
 
-
-def update_status(status, fname, repo):
+def status_update(plugins, fname, repo):
     '''Generates status file.
        Parameters:
 
-       :status: list of text string with the status info
+       :plugins: dictionary with plugins
        :fname: file name of the status file
        :repo: location of the database repository
 
@@ -32,17 +30,32 @@ def update_status(status, fname, repo):
     and the name and email of the contact.
     '''
 
+    col_frmt = '{:<21s}{:<13s}{:<27s}{:<s}'
+    date_frmt = '%Y-%m-%d %H:%M:%S'
+    timestr = time.strftime(date_frmt, time.localtime())
+
+    header = []
+    header.append('BC2 Data    {}'.format(timestr))
+    header.append('Live data directory: '
+                  '{}\n'.format(os.path.abspath(repo)))
+    header.append(col_frmt.format(
+        'Target', 'Status', 'Next check', 'Contact'))
+    header.append('\n')
+
+    status = []
+    for name, p in list(plugins.items()):
+        job = scheduler.get_job(name)
+        line = col_frmt.format(
+            '{}/{}'.format(p.dep, p.mod),
+            p.state.current,
+            job.next_run_time.strftime(date_frmt),
+            '{} ({})'.format(p.contact, p.email))
+        status.append(line)
+    status.sort()
+ 
     with open(fname, 'w') as fo:
-        timestr = time.strftime("%d %b %Y %H:%M:%S", time.localtime())
-        line = []
-        line.append('BC2 Data    {}\n'.format(timestr))
-        line.append('Live data directory: '
-                    '{}\n\n'.format(os.path.abspath(repo)))
-        line.append('{:<21s}{:<13s}{:<27s}{:<s}\n\n'.format(
-            'Target', 'Status', 'Next check', 'Contact'))
-        fo.write(''.join(line))
-        for line in status:
-            fo.write(line + '\n')
+        fo.write('\n'.join(header))
+        fo.write('\n'.join(status))
 
 
 def schedule_plugins(plugins):
@@ -58,7 +71,7 @@ def schedule_plugins(plugins):
     for name, p in list(plugins.items()):
         global scheduler
         scheduler.add_job(
-            p.state.checkifupdate, 'cron', name=name,
+            p.state.checkifupdate, 'cron', name=name, id=name,
             args=[{'plugins': plugins}],
             day_of_week=p.dow, hour=p.h, day=p.d, minute=p.m, second=p.s)
 
@@ -146,10 +159,8 @@ def signal_handling(plugins, filename):
             line = f.readline()
         os.remove(filename)
         if 'stop' in line:
-#            os.remove(fnsignal)
             raise Exception("Received 'stop' signal")
         elif 'check' in line.split():
-#            os.remove(fnsignal)
             pname = line.split()[1]
             if pname in plugins:
                 logger.info('Signal-triggered "{}" checking'.format(pname))
@@ -170,23 +181,26 @@ def read_conf_param():
        Checks the validity of the parameters.
     '''
 
+    options_path = ['plugins', 'store', 'repository', 'logfile',
+                   'signalfile', 'statusfile']
+    options_advanced = ['refreshtime', 'loglevel']
+
     def get_params(conffile):
         config = configparser.ConfigParser()
         config.read(conffile)
         section = 'paths'
         if config.has_section(section):
-            for option in ['plugins', 'store', 'repository', 'logfile',
-                           'signalfile']:
+            for option in options_path:
                 if config.has_option(section, option):
                     params[option] = config.get(section, option)
         section = 'advanced'
         if config.has_section(section):
-            for option in ['refreshtime', 'loglevel']:
+            for option in options_advanced:
                 if config.has_option(section, option):
                     params[option] = config.get(section, option)
         return params
 
-    def check_params(params):
+    def validate_params(params):
         '''insert any necessary check of parameters in this routine.
         '''
         params['loglevel'] = params['loglevel'].upper()
@@ -198,6 +212,12 @@ def read_conf_param():
             raise Exception('Invalid value for "refreshtime" option.')
         return params
 
+    def check_mandatory_params(params):
+        for o in options_path + options_advanced:
+            if o not in params:
+                raise KeyError("Missing parameters in configuration files")
+        return
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--conf', required=False,
                         help='config file location')
@@ -207,11 +227,11 @@ def read_conf_param():
     dflconffile = pkg_resources.resource_filename('scheduledb',
                                                   'scheduledb.ini')
     params = {}
-    params.update(check_params(get_params(dflconffile)))
+    params.update(validate_params(get_params(dflconffile)))
     if usrconffile is not None:
-        params.update(check_params(get_params(usrconffile)))
+        params.update(validate_params(get_params(usrconffile)))
         params['user config'] = usrconffile
-
+    check_mandatory_params(params)
     return params
 
 
@@ -229,7 +249,6 @@ def setup_custom_logger(name, level, filename):
 
 def main():
 
-
     # pre-initialization
     param = read_conf_param()
     logger = setup_custom_logger('', param['loglevel'], param['logfile'])
@@ -238,41 +257,26 @@ def main():
     global scheduler
     scheduler = BackgroundScheduler()
 
-    try:
-        refreshtime = int(param['refreshtime'])
-        plugindir = param['plugins']
-        store = param['store']
-        links = param['repository']
-    except KeyError:
-        logger.exception("Missing parameters in configuration files")
-        raise
+    plugindir = param['plugins']
+    store = param['store']
+    links = param['repository']
 
     try:
         # initialization
         logger.info('Scheduledb started')
-        scheduler.start()
         plugins = register_plugins(plugindir, store, links)
         machines = apply_statemachines(plugins)
+        scheduler.start()
         schedule_plugins(plugins)
         # control loop
         while True:
-            time.sleep(refreshtime)
-            with open('schedulerjobs.log', 'w') as fo:
-                scheduler.print_jobs(out=fo)
-            statuslist = []
-
+            time.sleep(int(param['refreshtime']))
             for name, p in list(plugins.items()):
-
                 # this state is due to a failed update, let's try again
                 if p.state.isstate('failed_update'):
                     p.logger.info('Retrying update')
                     p.state.doupdate({'plugins': plugins})
-
-                statuslist.append(p.status())
-
-            statuslist.sort()
-            update_status(statuslist, 'status.log', links)
-
+            status_update(plugins, param['statusfile'], links)
             signal_handling(plugins, param['signalfile'])
 
     except (KeyboardInterrupt, SystemExit):

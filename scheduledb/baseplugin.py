@@ -184,18 +184,6 @@ class Base(object):
     def _timestamp(self):
         return datetime.datetime.now().strftime('_%y%m%dT%H%M%S')
 
-    def status(self):
-        with open('schedulerjobs.log', 'r') as fs:
-            for job in fs:
-                if self.__name__ == job.split()[0]:
-                    nextupdate = ' '.join(job.split()[10:12])
-                    break
-        line = '{:<21s}{:<13s}{:<27s}{:<s}'.format(
-            '{}/{}'.format(self.dep, self.mod),
-            self.state.current, nextupdate,
-            '{} ({})'.format(self.contact, self.email))
-        return line
-
     def _check_scratch(self, e):
         p = e.args[0]['plugins']
         os.makedirs(self.d_checking)
