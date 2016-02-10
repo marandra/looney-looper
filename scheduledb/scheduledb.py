@@ -159,6 +159,7 @@ def signal_handling(plugins, filename):
             line = f.readline()
         os.remove(filename)
         if 'stop' in line:
+            logger.info("Received 'stop' signal")
             raise Exception("Received 'stop' signal")
         elif 'check' in line.split():
             pname = line.split()[1]
@@ -177,8 +178,11 @@ def signal_handling(plugins, filename):
 
 
 def read_conf_param():
-    '''Gets parameters from default and user-provided configuration files.
-       Checks the validity of the parameters.
+    '''Set "params" to default parameters values. Then it uses default
+       "scheduledb.ini" configuration file or a user-provided file for
+       overwriting the values of the parameters.
+       After succesfully reading the file, it validates the parameters.
+       In case no files are found, the routine writes a default file and stops.
     '''
 
     confopt = {'path': [('plugins', '../.plugins'),
@@ -192,9 +196,6 @@ def read_conf_param():
                             ('loglevel', 'INFO'),
                            ],
                }
-    #options_path = ['plugins', 'store', 'repository', 'logfile',
-    #               'signalfile', 'statusfile']
-    #options_advanced = ['refreshtime', 'loglevel']
 
     def populate_params(conf):
         p = {}
@@ -205,17 +206,15 @@ def read_conf_param():
 
     def write_conffile(f, conf):
         for section, options in conf.items():
-            f.write('[{}]'.format(section))
+            f.write('[{}]\n'.format(section))
             for option in options:
-                f.write('{}={}'.format(option[0], option[1]))
+                f.write('{}={}\n'.format(option[0], option[1]))
         return
 
     def get_params(filename):
         config = configparser.ConfigParser()
         config.read(filename)
         for section, options in confopt.items():
-            #section = 'path'
-            #section = 'advanced'
             if config.has_section(section):
                 for option in options:
                     if config.has_option(section, option[0]):
@@ -234,12 +233,6 @@ def read_conf_param():
             raise Exception('Invalid value for "refreshtime" option.')
         return params
 
-    #def check_mandatory_params(params):
-    #    for o in options_path + options_advanced:
-    #        if o not in params:
-    #            raise KeyError("Missing parameters in configuration files")
-    #    return
-
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--conf', required=False,
                         help='config file location')
@@ -248,13 +241,7 @@ def read_conf_param():
     filename = default_filename = 'scheduledb.ini'
     if args.conf is not None:
         filename = args.conf
-    #dflconffile = pkg_resources.resource_filename('scheduledb',
-    #                                              'scheduledb.ini')
     params = populate_params(confopt)
-    #params.update(validate_params(get_params(dflconffile)))
-    #if usrconffile is not None:
-        #params.update(validate_params(get_params(usrconffile)))
-        #params['user config'] = usrconffile
     if os.path.isfile(filename):
         params.update(validate_params(get_params(filename)))
     else:
@@ -264,9 +251,10 @@ def read_conf_param():
         except:
             raise
         finally:
-            raise Exception('No configuration file found. '
-                            'Creating file with default values. '
-                            'Edit the values accordingly and re-run.')
+            raise Exception("No configuration file found. "
+                            "Creating file '{}' with default values. "
+                            "Edit the values accordingly and re-run."
+                            .format(default_filename))
     #check_mandatory_params(params)
     return params
 
