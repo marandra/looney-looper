@@ -181,23 +181,45 @@ def read_conf_param():
        Checks the validity of the parameters.
     '''
 
-    options_path = ['plugins', 'store', 'repository', 'logfile',
-                   'signalfile', 'statusfile']
-    options_advanced = ['refreshtime', 'loglevel']
+    confopt = {'path': [('plugins', '../.plugins'),
+                        ('store', '../.store'),
+                        ('repository', '..'),
+                        ('logfile', './scheduledb.log'),
+                        ('signalfile', './signal'),
+                        ('statusfile', './status.log'),
+                       ],
+               'advanced': [('refreshtime', '5'),
+                            ('loglevel', 'INFO'),
+                           ],
+               }
+    #options_path = ['plugins', 'store', 'repository', 'logfile',
+    #               'signalfile', 'statusfile']
+    #options_advanced = ['refreshtime', 'loglevel']
 
-    def get_params(conffile):
+    def populate_params(conf):
+        p = {}
+        for section, options in conf.items():
+            for option in options:
+                p[option[0]] = option[1]
+        return p
+
+    def write_conffile(f, conf):
+        for section, options in conf.items():
+            f.write('[{}]'.format(section))
+            for option in options:
+                f.write('{}={}'.format(option[0], option[1]))
+        return
+
+    def get_params(filename):
         config = configparser.ConfigParser()
-        config.read(conffile)
-        section = 'paths'
-        if config.has_section(section):
-            for option in options_path:
-                if config.has_option(section, option):
-                    params[option] = config.get(section, option)
-        section = 'advanced'
-        if config.has_section(section):
-            for option in options_advanced:
-                if config.has_option(section, option):
-                    params[option] = config.get(section, option)
+        config.read(filename)
+        for section, options in confopt.items():
+            #section = 'path'
+            #section = 'advanced'
+            if config.has_section(section):
+                for option in options:
+                    if config.has_option(section, option[0]):
+                        params[option[0]] = config.get(section, option[0])
         return params
 
     def validate_params(params):
@@ -212,26 +234,40 @@ def read_conf_param():
             raise Exception('Invalid value for "refreshtime" option.')
         return params
 
-    def check_mandatory_params(params):
-        for o in options_path + options_advanced:
-            if o not in params:
-                raise KeyError("Missing parameters in configuration files")
-        return
+    #def check_mandatory_params(params):
+    #    for o in options_path + options_advanced:
+    #        if o not in params:
+    #            raise KeyError("Missing parameters in configuration files")
+    #    return
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--conf', required=False,
                         help='config file location')
     args = parser.parse_args()
 
-    usrconffile = args.conf
-    dflconffile = pkg_resources.resource_filename('scheduledb',
-                                                  'scheduledb.ini')
-    params = {}
-    params.update(validate_params(get_params(dflconffile)))
-    if usrconffile is not None:
-        params.update(validate_params(get_params(usrconffile)))
-        params['user config'] = usrconffile
-    check_mandatory_params(params)
+    filename = default_filename = 'scheduledb.ini'
+    if args.conf is not None:
+        filename = args.conf
+    #dflconffile = pkg_resources.resource_filename('scheduledb',
+    #                                              'scheduledb.ini')
+    params = populate_params(confopt)
+    #params.update(validate_params(get_params(dflconffile)))
+    #if usrconffile is not None:
+        #params.update(validate_params(get_params(usrconffile)))
+        #params['user config'] = usrconffile
+    if os.path.isfile(filename):
+        params.update(validate_params(get_params(filename)))
+    else:
+        try:
+            with open(default_filename, 'w') as f:
+                write_conffile(f, confopt)
+        except:
+            raise
+        finally:
+            raise Exception('No configuration file found. '
+                            'Creating file with default values. '
+                            'Edit the values accordingly and re-run.')
+    #check_mandatory_params(params)
     return params
 
 

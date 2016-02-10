@@ -17,11 +17,11 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='scheduledb',
-    version='0.3.0.dev0',
+    version='0.3.1.dev0',
     description='Flexible scheduler for automated update of databases',
     long_description=long_description,
-    url='https://wiki.biozentrum.unibas.ch/display/scicore/' \
-        'ScheduleDB+documentation',
+    #url='https://wiki.biozentrum.unibas.ch/display/scicore/' \
+    #    'ScheduleDB+documentation',
     author='Marcelo Raschi',
     author_email='marcelo.raschi@unibas.ch',
     license='Other/Proprietary License',
@@ -52,9 +52,9 @@ setup(
     #    'test': ['coverage'],
     #},
 
-    package_data={
-        '': ['*.ini'],
-    },
+    #package_data={
+    #    '': ['*.ini'],
+    #},
 
     # Although 'package_data' is the preferred approach, in some case you may
     # need to place data files outside of your packages. See:
