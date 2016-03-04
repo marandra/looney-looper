@@ -160,7 +160,7 @@ def signal_handling(plugins, filename):
         os.remove(filename)
         if 'stop' in line:
             logger.info("Received 'stop' signal")
-            raise Exception("Received 'stop' signal")
+            raise SystemExit("Received 'stop' signal")
         elif 'check' in line.split():
             pname = line.split()[1]
             if pname in plugins:
