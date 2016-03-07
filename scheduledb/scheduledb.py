@@ -255,7 +255,6 @@ def read_conf_param():
                             "Creating file '{}' with default values. "
                             "Edit the values accordingly and re-run."
                             .format(default_filename))
-    #check_mandatory_params(params)
     return params
 
 

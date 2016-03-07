@@ -102,7 +102,9 @@ class Base(object):
                                         self.dep + '_000000T000000')
                     makedirs_existsok(ndir)
                     remove_nexistok(sl)
-                    os.symlink(ndir, sl)
+                    # marcelo
+                    #os.symlink(ndir, sl)
+                    os.symlink(os.path.relpath(ndir, os.path.dirname(sl)), sl)
 
         # Create frozen symlinks
         self._create_frozen_links()
@@ -152,7 +154,9 @@ class Base(object):
             lf = os.path.join(self.LINKS, self.dep,
                               'frozen_' + df.split('_')[-1])
             _remove_nexistok(lf)
-            os.symlink(df, lf)
+            # marcelo
+            #os.symlink(df, lf)
+            os.symlink(os.path.relpath(df, os.path.dirname(lf)), lf)
         return
 
     def init(self, name, store='INIT_ME', links='INIT_ME'):
@@ -281,11 +285,15 @@ class Base(object):
         if self._fldependent:
             ndir = plugins[self.dep].d_mod
         os.rename(self.d_updating, ndir)
-        os.symlink(ndir, self.l_mod)
+        # marcelo
+        #os.symlink(ndir, self.l_mod)
+        os.symlink(os.path.relpath(ndir, os.path.dirname(self.l_mod)), self.l_mod)
 
         if self.previous:
             os.remove(self.l_prev)
-            os.symlink(self.d_mod, self.l_prev)
+            # marcelo
+            #os.symlink(self.d_mod, self.l_prev)
+            os.symlink(os.path.relpath(self.d_mod, os.path.dirname(self.l_prev)), self.l_prev)
             frozen = os.path.isfile(os.path.join(self.d_prev, self.FROZEN))
             clear = True
             for name in plugins:
