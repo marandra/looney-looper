@@ -1,6 +1,5 @@
-ScheduleDB
-==========
-Marcelo Raschi (marcelo.raschi@unibas.ch)
+Looney
+======
 
 Github repository_.
 
@@ -8,7 +7,7 @@ Github repository_.
 
 Description
 -----------
-ScheduleDB is a system that schedule updates of databases based on the frequency and the scripts provided by the user. The parameters and the scripts are provided as python programs, which are loaded at the initial run of the system.
+Looney is a system that schedule updates of databases based on the frequency and the scripts provided by the user. The parameters and the scripts are provided as python programs, which are loaded at the initial run of the system.
 
 The system takes care of the directory structure for the different versions of a database, and generates symbolic links to the current version as well as to other versions if requested by the user.
 
@@ -41,12 +40,12 @@ The first step is to create the desired directory structure:
   $ mkdir ~/databases/.plugins
   $ cd ~/databases/.system
 
-Create a virtual environment for pip-installing *scheduledb* and its dependencies
+Create a virtual environment for pip-installing *looney* and its dependencies
 
 .. code-block::
 
   $ virtualenv venv
-  $ pip install scheduledb
+  $ pip install looney
 
 The setup script run by pip will install the script in *~/databases/venv/bin/* and all the necessary dependencies
 
@@ -60,7 +59,7 @@ If no configuration file is provided, scheduledb will use the default configurat
 
 Usage
 -----
-Once installed, the *scheduledb* script should be installed and searchable in the path.
+Once installed, the *looney* script should be installed and searchable in the path.
 
 Configuration file
 ------------------
