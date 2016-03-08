@@ -49,13 +49,14 @@ def status_update(plugins, fname, repo):
             '{}/{}'.format(p.dep, p.mod),
             p.state.current,
             job.next_run_time.strftime(date_frmt),
-            '{} ({})\n'.format(p.contact, p.email))
+            '{} ({})'.format(p.contact, p.email))
         status.append(line)
     status.sort()
  
     with open(fname, 'w') as fo:
         fo.write('\n'.join(header))
         fo.write('\n'.join(status))
+        fo.write('\n')
 
 
 def schedule_plugins(plugins):
