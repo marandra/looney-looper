@@ -49,7 +49,7 @@ def status_update(plugins, fname, repo):
             '{}/{}'.format(p.dep, p.mod),
             p.state.current,
             job.next_run_time.strftime(date_frmt),
-            '{} ({})'.format(p.contact, p.email))
+            '{} ({})\n'.format(p.contact, p.email))
         status.append(line)
     status.sort()
  

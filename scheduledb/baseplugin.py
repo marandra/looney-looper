@@ -97,14 +97,14 @@ class Base(object):
                 if e.errno == errno.ENOENT:
                     os.symlink('dummy', sl)
             finally:
-                if os.readlink(sl) not in listing:
+                path = os.path.relpath(os.path.realpath(sl))
+                if path not in listing:
                     ndir = os.path.join(self.STORE,
                                         self.dep + '_000000T000000')
                     makedirs_existsok(ndir)
                     remove_nexistok(sl)
                     # marcelo
-                    #os.symlink(ndir, sl)
-                    os.symlink(os.path.relpath(ndir, os.path.dirname(sl)), sl)
+                    self._symlink_relpath(ndir, sl)
 
         # Create frozen symlinks
         self._create_frozen_links()
@@ -125,10 +125,20 @@ class Base(object):
             init_symlinks(self, self.l_prev, listing)
         return True
 
+    def _symlink_relpath(self, dir, lnk):
+        os.symlink(os.path.relpath(dir, os.path.dirname(lnk)), lnk)
+        return
+
     def _refreshlinks(self, e=None):
-        self.d_mod = os.readlink(self.l_mod)
+        # marcelo
+        #self.d_mod = os.readlink(self.l_mod)
+        self.d_mod = os.path.join(self.STORE,
+                                  os.path.basename(os.readlink(self.l_mod)))
         if self.previous:
-            self.d_prev = os.readlink(self.l_prev)
+            # marcelo
+            #self.d_prev = os.readlink(self.l_prev)
+            self.d_prev = os.path.join(self.STORE,
+                                 os.path.basename(os.readlink(self.l_prev)))
 
     def _d_frozen(self):
         frozenpath = os.path.join(self.STORE, self.dep + '_*', self.FROZEN)
@@ -155,8 +165,7 @@ class Base(object):
                               'frozen_' + df.split('_')[-1])
             _remove_nexistok(lf)
             # marcelo
-            #os.symlink(df, lf)
-            os.symlink(os.path.relpath(df, os.path.dirname(lf)), lf)
+            self._symlink_relpath(df, lf)
         return
 
     def init(self, name, store='INIT_ME', links='INIT_ME'):
@@ -276,6 +285,7 @@ class Base(object):
             self.state.notfinished()
 
     def _update_links(self, e):
+
         plugins = e.args[0]['plugins']
         self._refreshlinks()
 
@@ -286,14 +296,12 @@ class Base(object):
             ndir = plugins[self.dep].d_mod
         os.rename(self.d_updating, ndir)
         # marcelo
-        #os.symlink(ndir, self.l_mod)
-        os.symlink(os.path.relpath(ndir, os.path.dirname(self.l_mod)), self.l_mod)
+        self._symlink_relpath(ndir, self.l_mod)
 
         if self.previous:
             os.remove(self.l_prev)
             # marcelo
-            #os.symlink(self.d_mod, self.l_prev)
-            os.symlink(os.path.relpath(self.d_mod, os.path.dirname(self.l_prev)), self.l_prev)
+            self._symlink_relpath(self.d_mod, self.l_prev)
             frozen = os.path.isfile(os.path.join(self.d_prev, self.FROZEN))
             clear = True
             for name in plugins:
